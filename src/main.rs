@@ -1,19 +1,16 @@
-mod simulator;
-
 mod mission_controller;
-
+mod simulator;
 mod units;
-use std::thread::Thread;
 
+use mission_controller::controller::Controller;
+use mission_controller::mission_runtime::MissionRuntime;
+
+use mission_controller::segment_def::SegmentDef;
+use simulator::default_drone::DefaultDrone;
+use simulator::inputs::Inputs;
+use simulator::simulator::Simulator;
 use simulator::types;
-
-use crate::{
-    mission_controller::{
-        controller::Controller, mission_def::SegmentDef, mission_runtime::MissionRuntime,
-    },
-    simulator::{default_drone::DefaultDrone, inputs::Inputs, simulator::Simulator},
-    units::units::Seconds,
-};
+use units::units::Seconds;
 
 fn main() {
     let mut sim_time = Seconds::zero();
@@ -24,7 +21,7 @@ fn main() {
     let mut mission = MissionRuntime::new();
     let mut current_inputs = Inputs::default();
 
-    for _ in 0..700 {
+    for _ in 0..500 {
         let inputs = if let Some(setpoint) = mission.update(sim_time, &simulator.state) {
             controller.control(setpoint, &simulator.state, current_inputs)
         } else {
@@ -33,7 +30,7 @@ fn main() {
 
         current_inputs = inputs;
 
-        simulator.tick(Seconds(0.05), &inputs);
+        simulator.tick(Seconds(0.1), &inputs);
 
         sim_time = Seconds(sim_time.0 + 0.05);
 

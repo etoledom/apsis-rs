@@ -1,8 +1,5 @@
 use crate::{
-    mission_controller::{
-        mission_def::{MissionDef, SegmentDef},
-        setpoint::SetPoint,
-    },
+    mission_controller::{mission_def::MissionDef, segment_def::SegmentDef, setpoint::SetPoint},
     simulator::state::State,
     units::units::{MettersLiteral, Seconds, SecondsLiteral, VelocityLiteral},
 };

@@ -1,9 +1,6 @@
 use crate::{
     mission_controller::setpoint::SetPoint,
-    simulator::{
-        default_drone::DefaultDrone, inputs::Inputs, simulator::Simulator, state::State,
-        types::throttle::Throttle,
-    },
+    simulator::{inputs::Inputs, state::State, types::throttle::Throttle},
 };
 
 pub struct Controller;
@@ -15,9 +12,9 @@ impl Controller {
 
     pub fn control(&self, setpoint: SetPoint, state: &State, current_inputs: Inputs) -> Inputs {
         let throttle_adjustment = if setpoint.target_altitude > state.altitude {
-            0.1
+            0.5
         } else if setpoint.target_altitude < state.altitude {
-            -0.1
+            -0.5
         } else {
             0.0
         };

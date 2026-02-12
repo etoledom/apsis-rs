@@ -1,9 +1,6 @@
 use crate::{
     simulator::{
-        drone::{BodyFrameAcceleration, Drone},
-        inputs::Inputs,
-        state::State,
-        types::vec2::Vec2,
+        drone::Drone, inputs::Inputs, state::State, types::acceleration_3d::WorldFrameAcceleration,
     },
     units::{
         consts::{EARTH_RADIUS, G_EARTH},
@@ -67,22 +64,20 @@ impl<DroneType: Drone> Simulator<DroneType> {
                 .body_frame_acceleration(inputs.throttle, inputs.pitch, inputs.roll);
 
         let world_frame_acceleration =
-            body_frame_acceleration.rotate(self.state.heading.to_radians());
+            body_frame_acceleration.rotate_to_world_frame_by(self.state.heading.to_radians());
 
-        let drag_acceleration = BodyFrameAcceleration {
-            vertical: -(self.state.vertical_velocity.abs() * self.state.vertical_velocity)
+        // a_drag [m/s2] = -|v|*v*k where k -> drag coef [1/m]
+        let drag_acceleration = WorldFrameAcceleration::new(
+            -(self.state.ground_speed_ned.y.abs() * self.state.ground_speed_ned.y)
+                * self.drone.drag_coefficient().horizontal.value(),
+            -(self.state.ground_speed_ned.x.abs() * self.state.ground_speed_ned.x)
+                * self.drone.drag_coefficient().horizontal.value(),
+            -(self.state.vertical_velocity.abs() * self.state.vertical_velocity)
                 * self.drone.drag_coefficient().vertical.value(),
-            forward: -(self.state.ground_speed_ned.y.abs() * self.state.ground_speed_ned.y)
-                * self.drone.drag_coefficient().horizontal.value(),
-            right: -(self.state.ground_speed_ned.x.abs() * self.state.ground_speed_ned.x)
-                * self.drone.drag_coefficient().horizontal.value(),
-        };
+        );
 
         let mut net_acceleration = world_frame_acceleration + drag_acceleration;
         net_acceleration.vertical = net_acceleration.vertical - G_EARTH;
-
-        // let ground_acceleration = Vec2::new(net_acceleration.right, net_acceleration.forward)
-        //     .rotate(self.state.heading.to_radians());
 
         self.state.vertical_velocity =
             net_acceleration.vertical * delta_t + self.state.vertical_velocity;
@@ -115,7 +110,7 @@ mod tests {
             default_drone::DefaultDrone,
             types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
         },
-        units::units::{Meters, VelocityLiteral},
+        units::units::Meters,
     };
 
     use super::*;
@@ -124,7 +119,7 @@ mod tests {
     fn stable_hover() {
         let drone = DefaultDrone {};
         let inputs = Inputs {
-            throttle: drone.hover_throttle(),
+            throttle: Throttle::clamp(drone.hover_throttle().get() + 0.0),
             pitch: Pitch::clamp(0.0),
             roll: Roll::clamp(0.0),
             yaw: Yaw::clamp(0.0),
@@ -163,7 +158,7 @@ mod tests {
 
         assert_relative_eq!(simulator.state.vertical_velocity.0, 0.0, epsilon = 1e-2);
         assert_relative_eq!(simulator.state.ground_speed_ned.x.0, 0.0);
-        assert_relative_eq!(simulator.state.ground_speed_ned.y.0, 14.24, epsilon = 1e-2);
+        assert_relative_eq!(simulator.state.ground_speed_ned.y.0, 9.06, epsilon = 1e-2);
     }
 
     #[test]

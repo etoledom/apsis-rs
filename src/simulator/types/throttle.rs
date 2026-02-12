@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::simulator::types::unit_interval::UnitInterval;
 
 #[derive(Clone, Copy, Default)]

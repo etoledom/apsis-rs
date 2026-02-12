@@ -82,6 +82,10 @@ impl Radians {
     pub fn cos(&self) -> f64 {
         self.0.cos()
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0.0
+    }
 }
 
 impl Div<Radians> for Radians {

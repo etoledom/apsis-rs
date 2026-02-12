@@ -14,16 +14,16 @@ use crate::{
 pub struct DefaultDrone;
 
 impl Drone for DefaultDrone {
-    fn max_acceleration(&self) -> Acceleration {
-        G_EARTH + 6.mps2()
-    }
-
     fn max_roll(&self) -> Degrees {
         25.degrees()
     }
 
     fn max_pitch(&self) -> Degrees {
         45.degrees()
+    }
+
+    fn thrust_to_waight_ratio(&self) -> f64 {
+        2.0
     }
 
     fn mass(&self) -> Kilograms {

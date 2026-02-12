@@ -20,4 +20,8 @@ impl Roll {
     pub fn get(self) -> f64 {
         self.0.get()
     }
+
+    pub fn zero() -> Self {
+        Self(SignedUnitInterval::clamp(0.0))
+    }
 }

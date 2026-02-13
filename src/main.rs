@@ -12,10 +12,31 @@ use simulator::simulator::Simulator;
 use simulator::types;
 use units::units::Seconds;
 
+use crate::simulator::drone::Drone;
+use crate::simulator::force_model::context::Context;
+use crate::simulator::force_model::force_model::ForceModel;
+use crate::simulator::types::acceleration_3d::WorldFrameAcceleration;
+use crate::units::acceleration::Acceleration;
+
+struct Wind;
+
+impl<Vehicle: Drone> ForceModel<Vehicle> for Wind {
+    fn acceleration_contribution<'a>(
+        &self,
+        _: &Context<Vehicle>,
+        _: Seconds,
+    ) -> WorldFrameAcceleration {
+        WorldFrameAcceleration::new(Acceleration(0.5), Acceleration(0.5), Acceleration(0.0))
+    }
+}
+
 fn main() {
     let mut sim_time = Seconds::zero();
 
+    let wind = Wind {};
+
     let mut simulator = Simulator::new(DefaultDrone {});
+    // simulator.add_force(wind);
 
     let controller = Controller::new();
     let mut mission = MissionRuntime::new();
@@ -39,12 +60,14 @@ fn main() {
         });
 
         println!(
-            "Time: {:.2}: Step: {}, Throttle: {:.2}, velocity: {:.2}, Altitude: {:.2}",
+            "Time: {:.2}: Step: {}, Throttle: {:.2}, velocity: {:.2}, Altitude: {:.2}, geo: ({}, {})",
             sim_time.0,
             segment,
             current_inputs.throttle.get(),
             simulator.state.vertical_velocity.0,
-            simulator.state.altitude.0
+            simulator.state.altitude.0,
+            simulator.state.latitude,
+            simulator.state.longitude
         );
     }
 }

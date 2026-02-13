@@ -1,5 +1,8 @@
 use crate::{
-    simulator::{phase::Phase, types::vec2::Vec2},
+    simulator::{
+        phase::Phase,
+        types::{acceleration_3d::WorldFrameGroundSpeed, vec2::Vec2},
+    },
     units::{
         angles::{Degrees, DegreesPerSecond},
         units::{Meters, Seconds, Velocity},
@@ -12,7 +15,7 @@ pub struct State {
     pub phase_start_time: Seconds,
     pub altitude: Meters,
     pub vertical_velocity: Velocity,
-    pub ground_speed_ned: Vec2<Velocity>,
+    pub ground_speed_ned: WorldFrameGroundSpeed,
     pub heading: Degrees,
     pub heading_rate: DegreesPerSecond,
     pub battery_pct: f64,

@@ -1,11 +1,19 @@
 use core::ops::Mul;
-use std::ops::{Add, Div, Sub};
+use std::ops::{Add, Div, Neg, Sub};
 
 use crate::units::units::{Seconds, Velocity};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
 pub struct Acceleration(pub f64); // m/s²
+
+impl Neg for Acceleration {
+    type Output = Acceleration;
+
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
 
 impl Mul<f64> for Acceleration {
     type Output = Acceleration;

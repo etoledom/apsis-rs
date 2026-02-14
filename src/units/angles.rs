@@ -18,6 +18,10 @@ impl Degrees {
     pub fn zero() -> Self {
         Self(0.0)
     }
+
+    pub fn sin(self) -> f64 {
+        self.0.sin()
+    }
 }
 
 impl Default for Degrees {

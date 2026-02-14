@@ -11,6 +11,7 @@ use crate::{
     },
 };
 
+#[derive(Clone, Copy)]
 pub struct DefaultDrone;
 
 impl Drone for DefaultDrone {

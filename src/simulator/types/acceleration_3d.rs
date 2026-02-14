@@ -1,7 +1,7 @@
 use std::ops::{Add, Mul, Sub};
 
 use crate::{
-    simulator::types::vec2::Vec2,
+    simulator::types::{vec2::Vec2, velocity_ned::VelocityNed},
     units::{
         acceleration::{Acceleration, AccelerationLiteral},
         angles::Radians,
@@ -143,6 +143,18 @@ impl Add for WorldFrameAcceleration {
             forward: self.north() + rhs.north(),
             right: self.east() + rhs.east(),
         })
+    }
+}
+
+impl Mul<Seconds> for WorldFrameAcceleration {
+    type Output = VelocityNed;
+
+    fn mul(self, time: Seconds) -> Self::Output {
+        VelocityNed::new(
+            self.north() * time,
+            self.east() * time,
+            self.vertical() * time,
+        )
     }
 }
 

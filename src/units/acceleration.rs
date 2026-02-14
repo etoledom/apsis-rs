@@ -1,7 +1,10 @@
 use core::ops::Mul;
 use std::ops::{Add, Div, Neg, Sub};
 
-use crate::units::units::{Seconds, Velocity};
+use crate::{
+    simulator::types::drag::Drag,
+    units::units::{PerMeter, Seconds, Velocity, VelocitySquare},
+};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug)]
@@ -77,5 +80,14 @@ impl AccelerationLiteral for f64 {
 impl AccelerationLiteral for i32 {
     fn mps2(self) -> Acceleration {
         Acceleration(self as f64)
+    }
+}
+
+/// acc[m/s^2] * drag_coef[1/m] = vel^2[(m/s)^2]
+impl Div<PerMeter> for Acceleration {
+    type Output = VelocitySquare;
+
+    fn div(self, rhs: PerMeter) -> Self::Output {
+        VelocitySquare(self.0 / rhs.0)
     }
 }

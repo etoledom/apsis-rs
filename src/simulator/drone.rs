@@ -48,7 +48,8 @@ pub trait Drone {
 
         let total_tilt = pitch.hypot(roll);
         let base_acceleration = throttle.get() * self.max_thrust_acceleration();
-        let vertical = base_acceleration * total_tilt.cos();
+        // NED -> Upward acceleration is negative.
+        let vertical = -base_acceleration * total_tilt.cos();
 
         if total_tilt.is_zero() {
             return BodyFrameAcceleration::from_vertical(vertical);
@@ -98,7 +99,7 @@ mod tests {
             Roll::clamp(0.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 15.69, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -15.69, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 0.0, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 0.0, epsilon = 1e-2);
     }
@@ -112,7 +113,7 @@ mod tests {
             Roll::clamp(0.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 9.06, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -9.06, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 3.75, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 0.0, epsilon = 1e-2);
     }
@@ -126,7 +127,7 @@ mod tests {
             Roll::clamp(0.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, G_EARTH.0, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -G_EARTH.0, epsilon = 1e-2); // Hovering, G is not applied
         assert_relative_eq!(acceleration.forward().0, 9.805, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 0.0, epsilon = 1e-2);
     }
@@ -140,7 +141,7 @@ mod tests {
             Roll::clamp(0.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 14.49, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -14.49, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, -6.0, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 0.0, epsilon = 1e-2);
     }
@@ -154,7 +155,7 @@ mod tests {
             Roll::clamp(0.5),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 15.31, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -15.31, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 0.0, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 3.39, epsilon = 1e-2);
     }
@@ -168,7 +169,7 @@ mod tests {
             Roll::clamp(-0.5),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 15.31, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -15.31, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 0.0, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, -3.39, epsilon = 1e-2);
     }
@@ -182,7 +183,7 @@ mod tests {
             Roll::clamp(1.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 17.77, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -17.77, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 0.0, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 8.28, epsilon = 1e-2);
     }
@@ -196,7 +197,7 @@ mod tests {
             Roll::clamp(1.0),
         );
 
-        assert_relative_eq!(acceleration.vertical().0, 12.21, epsilon = 1e-2);
+        assert_relative_eq!(acceleration.vertical().0, -12.21, epsilon = 1e-2);
         assert_relative_eq!(acceleration.forward().0, 13.41, epsilon = 1e-2);
         assert_relative_eq!(acceleration.right().0, 7.45, epsilon = 1e-2);
     }

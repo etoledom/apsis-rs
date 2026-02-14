@@ -10,7 +10,7 @@ use crate::{
     },
     units::{
         consts::EARTH_RADIUS,
-        units::{MettersLiteral, Seconds, Velocity},
+        units::{Meters, Seconds, Velocity},
     },
 };
 
@@ -40,10 +40,10 @@ impl<DroneType: Drone> Simulator<DroneType> {
     }
 
     pub fn tick(&mut self, delta_t: Seconds, inputs: &Inputs) {
+        let acceleration = self.net_acceleration(delta_t, inputs);
+        self.integrate(acceleration, delta_t);
         self.update_heading(delta_t, inputs);
-        self.update_airframe_velocity(delta_t, inputs);
-        self.update_altitude(self.state.vertical_velocity, delta_t);
-        self.update_horizontal_position(self.state.ground_speed_ned, delta_t);
+        self.update_horizontal_position(self.state.velocity_ned.ground_speed(), delta_t);
         self.update_battery_state(delta_t, inputs);
     }
 
@@ -55,18 +55,13 @@ impl<DroneType: Drone> Simulator<DroneType> {
         self.state.heading = (average * delta_t) + self.state.heading;
     }
 
-    fn update_altitude(&mut self, vertical_velocity: Velocity, delta_t: Seconds) {
-        let final_gained_altitude = vertical_velocity * delta_t;
-        self.state.altitude = self.state.altitude + final_gained_altitude.max(0.meters())
-    }
-
     fn update_battery_state(&mut self, delta_t: Seconds, inputs: &Inputs) {
         let battery_drain_pct = self.drone.battery_drain_pct(inputs.throttle) * delta_t.0;
         self.state.battery_pct -= battery_drain_pct;
         self.state.battery_pct = self.state.battery_pct.max(0.0);
     }
 
-    fn update_airframe_velocity(&mut self, delta_t: Seconds, inputs: &Inputs) {
+    fn net_acceleration(&self, delta_t: Seconds, inputs: &Inputs) -> WorldFrameAcceleration {
         let context = Context::new(&self.state, inputs, &self.drone);
 
         let external_acceleration = self
@@ -76,20 +71,24 @@ impl<DroneType: Drone> Simulator<DroneType> {
                 acceleration + force.acceleration_contribution(&context, delta_t)
             });
 
-        let net_acceleration = self
-            .core_mechanics_models
+        self.core_mechanics_models
             .acceleration_contribution(&context, delta_t)
-            + external_acceleration;
+            + external_acceleration
+    }
 
-        self.state.vertical_velocity =
-            net_acceleration.vertical() * delta_t + self.state.vertical_velocity;
+    fn integrate(&mut self, acceleration: WorldFrameAcceleration, delta_t: Seconds) {
+        let velocity_ned_old = self.state.velocity_ned;
 
-        if self.state.vertical_velocity.0 < 0.0 && self.state.altitude.0 <= 0.0 {
-            self.state.vertical_velocity = Velocity(0.0);
+        self.state.velocity_ned += acceleration * delta_t;
+
+        self.state.position_ned +=
+            velocity_ned_old * delta_t + (acceleration * delta_t) * delta_t * 0.5;
+        self.state.altitude = -self.state.position_ned.down();
+
+        if self.state.velocity_ned.down().0 > 0.0 && self.state.altitude.0 < 0.0 {
+            self.state.velocity_ned.update_down(Velocity(0.0));
+            self.state.altitude = Meters::zero();
         }
-
-        self.state.ground_speed_ned =
-            net_acceleration.ground_acceleration() * delta_t + self.state.ground_speed_ned;
     }
 
     fn update_horizontal_position(
@@ -114,9 +113,11 @@ mod tests {
     use crate::{
         simulator::{
             default_drone::DefaultDrone,
-            types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
+            types::{
+                pitch::Pitch, position_ned::PositionNed, roll::Roll, throttle::Throttle, yaw::Yaw,
+            },
         },
-        units::units::Meters,
+        units::{consts::G_EARTH, units::Meters},
     };
 
     use super::*;
@@ -132,25 +133,33 @@ mod tests {
         };
 
         let mut simulator = Simulator::new(drone);
-        simulator.state.altitude = Meters(1.0);
+        simulator.state.position_ned =
+            PositionNed::new(Meters::zero(), Meters::zero(), Meters(-1.0));
 
         for _ in 0..100 {
             simulator.tick(Seconds(0.02), &inputs);
         }
 
         assert_relative_eq!(simulator.state.altitude.0, 1.0);
-        assert_relative_eq!(simulator.state.vertical_velocity.0, 0.0);
+        assert_relative_eq!(simulator.state.velocity_ned.down().0, 0.0);
     }
 
     #[test]
-    fn move_forward() {
+    fn forward_terminal_velocity() {
         let drone = DefaultDrone {};
         let inputs = Inputs {
-            throttle: Throttle::clamp(drone.hover_throttle().get()),
+            throttle: drone.hover_throttle(),
             pitch: Pitch::clamp(1.0),
             roll: Roll::clamp(0.0),
             yaw: Yaw::clamp(0.0),
         };
+
+        // V_up = -sqrt_root( G*(TWR - 1)*sin(pitch) / k ) ; where: TWR = thrust to wait ration; k = vertical drag coeff
+        let expected = (G_EARTH
+            * (drone.thrust_to_waight_ratio() - 1.0)
+            * drone.max_pitch().to_radians().sin()
+            / drone.drag_coefficient().forward.value())
+        .sqrt();
 
         let mut simulator = Simulator::new(drone);
         simulator.state = State {
@@ -158,14 +167,14 @@ mod tests {
             ..Default::default()
         };
 
-        for _ in 0..100 {
-            simulator.tick(Seconds(0.02), &inputs);
+        for _ in 0..400 {
+            simulator.tick(Seconds(0.01), &inputs);
         }
 
-        assert_relative_eq!(simulator.state.ground_speed_ned.east().0, 0.0);
+        assert_relative_eq!(simulator.state.velocity_ned.ground_speed().east().0, 0.0);
         assert_relative_eq!(
-            simulator.state.ground_speed_ned.north().0,
-            4.15,
+            simulator.state.velocity_ned.ground_speed().north().0,
+            expected.0,
             epsilon = 1e-2
         );
     }
@@ -200,28 +209,57 @@ mod tests {
         let mut simulator = Simulator::new(drone);
         simulator.state.heading = crate::units::angles::Degrees(0.0); // North
 
-        for _ in 0..100 {
-            simulator.tick(
-                Seconds(0.01),
-                &Inputs {
-                    throttle: Throttle::max(),
-                    ..Default::default()
-                },
-            );
+        let inputs = Inputs {
+            throttle: Throttle::max(),
+            ..Default::default()
+        };
+
+        // V_up = -sqrt_root( G(TWR - 1) / k ) ; where: TWR = thrust to wait ration; k = vertical drag coeff
+        let expected = -(G_EARTH * (drone.thrust_to_waight_ratio() - 1.0)
+            / drone.drag_coefficient().vertical.value())
+        .sqrt();
+
+        for _ in 0..150 {
+            simulator.tick(Seconds(0.01), &inputs);
         }
 
-        assert_relative_eq!(simulator.state.vertical_velocity.0, 3.98, epsilon = 1e-2); // Near 45 degrees as specified.
+        assert_relative_eq!(
+            simulator.state.velocity_ned.down().0,
+            expected.0,
+            epsilon = 1e-2
+        );
 
         for _ in 0..10 {
-            simulator.tick(
-                Seconds(0.01),
-                &Inputs {
-                    throttle: Throttle::max(),
-                    ..Default::default()
-                },
-            );
+            simulator.tick(Seconds(0.01), &inputs);
         }
 
-        assert_relative_eq!(simulator.state.vertical_velocity.0, 4.0, epsilon = 1e-2); // Near 45 degrees as specified.
+        assert_relative_eq!(
+            simulator.state.velocity_ned.down().0,
+            expected.0,
+            epsilon = 1e-2
+        );
+    }
+
+    #[test]
+    fn free_fall_terminal_velocity() {
+        let drone = DefaultDrone {};
+        let mut simulator = Simulator::new(drone);
+        let input = Inputs::default();
+
+        simulator.state.position_ned =
+            PositionNed::new(Meters::zero(), Meters::zero(), Meters(-100.0));
+
+        for _ in 0..200 {
+            simulator.tick(Seconds(0.01), &input);
+        }
+
+        // (G / drag_coef_vertical)^2
+        let expected = (G_EARTH.0 / drone.drag_coefficient().vertical.value().0).sqrt();
+
+        assert_relative_eq!(
+            simulator.state.velocity_ned.down().0,
+            expected,
+            epsilon = 1e-2
+        );
     }
 }

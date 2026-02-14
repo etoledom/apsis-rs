@@ -56,6 +56,14 @@ impl Meters {
     }
 }
 
+impl Neg for Meters {
+    type Output = Meters;
+
+    fn neg(self) -> Self::Output {
+        Meters(-self.0)
+    }
+}
+
 pub trait MettersLiteral {
     fn meters(self) -> Meters;
 }
@@ -71,7 +79,7 @@ impl MettersLiteral for i32 {
 pub struct PerMeter(pub f64); // 1/m
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Velocity(pub f64); // m/s
 
 impl Velocity {
@@ -228,3 +236,19 @@ impl Neg for VelocitySquare {
         VelocitySquare(-self.0)
     }
 }
+
+impl VelocitySquare {
+    pub fn sqrt(self) -> Velocity {
+        Velocity(self.0.sqrt())
+    }
+}
+
+impl Neg for Velocity {
+    type Output = Velocity;
+
+    fn neg(self) -> Self::Output {
+        Velocity(-self.0)
+    }
+}
+
+// impl Eq for Velocity {}

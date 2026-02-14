@@ -15,6 +15,6 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for GravityModel {
         _: &Context<Vehicle>,
         _: Seconds,
     ) -> crate::simulator::types::acceleration_3d::WorldFrameAcceleration {
-        WorldFrameAcceleration::from_vertical(-G_EARTH)
+        WorldFrameAcceleration::from_vertical(G_EARTH)
     }
 }

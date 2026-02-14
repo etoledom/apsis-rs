@@ -21,14 +21,13 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for DragModel {
         ctx: &Context<'a, Vehicle>,
         _: Seconds,
     ) -> WorldFrameAcceleration {
-        let ground_speed = ctx.state.ground_speed_ned;
-        let vertical_velocity = ctx.state.vertical_velocity;
+        let ground_speed = ctx.state.velocity_ned.ground_speed();
+        let vertical_velocity = ctx.state.velocity_ned.down();
         let drag_coefficient = ctx.vehicle.drag_coefficient();
 
         // a_drag [m/s2] = -|v|*v*k where k -> drag coef [1/m]
         WorldFrameAcceleration::new(
-            -(ground_speed.north().abs() * ground_speed.north())
-                * drag_coefficient.horizontal.value(),
+            -(ground_speed.north().abs() * ground_speed.north()) * drag_coefficient.forward.value(),
             -(ground_speed.east().abs() * ground_speed.east())
                 * drag_coefficient.horizontal.value(),
             -(vertical_velocity.abs() * vertical_velocity) * drag_coefficient.vertical.value(),

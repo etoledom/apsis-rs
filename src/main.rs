@@ -64,7 +64,7 @@ fn main() {
             sim_time.0,
             segment,
             current_inputs.throttle.get(),
-            simulator.state.vertical_velocity.0,
+            simulator.state.velocity_ned.down().0,
             simulator.state.altitude.0,
             simulator.state.latitude,
             simulator.state.longitude

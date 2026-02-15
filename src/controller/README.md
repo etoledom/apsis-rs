@@ -1,6 +1,6 @@
 ## Development Plan
 
-[] Throttle / altitude hold
+[x] Throttle / altitude hold
 [] Forward velocity hold
 [] Roll velocity hold
 [] Yaw rate

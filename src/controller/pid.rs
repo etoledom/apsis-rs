@@ -4,10 +4,12 @@ use std::{
 };
 
 use crate::{
+    controller::gain::{Gain, LinearGain},
     simulator::types::throttle::Throttle,
     units::units::{Meters, Seconds, Velocity},
 };
 
+#[derive(Default)]
 pub struct PID<Error, Output, Kp, Ki, Kd> {
     kp: Kp,
     ki: Ki,
@@ -64,33 +66,75 @@ where
     }
 }
 
-// ==================
-//
+pub type AltitudePID = PID<Meters, Velocity, LinearGain, LinearGain, LinearGain>;
+pub type ClimbPID = PID<Velocity, Throttle, LinearGain, LinearGain, LinearGain>;
 
-pub trait Gain<Error, Output> {
-    fn apply(&self, value: Error) -> Output;
-}
+#[cfg(test)]
+mod test {
+    use crate::{
+        controller::gain::LinearGain,
+        units::units::{MettersLiteral, SecondsLiteral, VelocityLiteral},
+    };
 
-#[derive(Clone, Copy, Default)]
-pub struct LinearGain(f64);
+    use super::*;
 
-impl LinearGain {
-    pub fn new(value: f64) -> Self {
-        LinearGain(value)
+    #[test]
+    fn test_pid_proportional_only() {
+        let mut pid: AltitudePID = PID {
+            kp: LinearGain::new(2.0),
+            ..Default::default()
+        };
+
+        let error = 5.meters();
+        let output = pid.update(error, 0.seconds());
+
+        assert_eq!(output, 10.mps())
     }
-    pub fn zero() -> Self {
-        LinearGain(0.0)
-    }
-}
 
-impl Gain<Meters, Velocity> for LinearGain {
-    fn apply(&self, value: Meters) -> Velocity {
-        Velocity(self.0 * value.0)
-    }
-}
+    #[test]
+    fn test_pid_integral_accumulates() {
+        let mut pid: AltitudePID = PID {
+            ki: LinearGain::new(1.0),
+            ..Default::default()
+        };
 
-impl Gain<Velocity, Throttle> for LinearGain {
-    fn apply(&self, value: Velocity) -> Throttle {
-        Throttle::clamp(self.0 * value.0)
+        let delta_t = 1.seconds();
+
+        // updating 2 metters 2 times = 4
+        pid.update(2.meters(), delta_t);
+        let output = pid.update(2.meters(), delta_t);
+
+        assert_eq!(output, 4.mps());
+    }
+
+    #[test]
+    fn test_pid_derivative_computes_difference() {
+        let mut pid: AltitudePID = PID {
+            kd: LinearGain::new(1.0),
+            ..Default::default()
+        };
+
+        let delta_t = 1.seconds();
+
+        pid.update(1.meters(), delta_t);
+        let output = pid.update(3.meters(), delta_t);
+
+        //(prev_err - err) / dt
+        //(3m - 1m) / 1s = 2mps
+        assert_eq!(output, 2.mps())
+    }
+
+    #[test]
+    fn test_pid_non_derivative_on_first_loop() {
+        let mut pid: AltitudePID = PID {
+            kd: LinearGain::new(1.0),
+            ..Default::default()
+        };
+
+        let delta_t = 1.seconds();
+
+        let output = pid.update(3.meters(), delta_t);
+
+        assert_eq!(output, 0.mps())
     }
 }

@@ -1,21 +1,13 @@
 use crate::{
-    simulator::{
-        phase::Phase,
-        types::{
-            acceleration_3d::WorldFrameGroundSpeed, position_ned::PositionNed, vec2::Vec2,
-            velocity_ned::VelocityNed,
-        },
-    },
+    simulator::types::{position_ned::PositionNed, vec2::Vec2, velocity_ned::VelocityNed},
     units::{
         angles::{Degrees, DegreesPerSecond},
-        units::{Meters, Seconds, Velocity},
+        units::{Meters, Velocity},
     },
 };
 
 #[derive(Default)]
 pub struct State {
-    pub phase: Phase,
-    pub phase_start_time: Seconds,
     pub altitude: Meters,
 
     pub velocity_ned: VelocityNed,

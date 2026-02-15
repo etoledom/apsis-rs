@@ -1,4 +1,6 @@
-pub mod altitude_controller;
 pub mod controller;
+
+mod altitude_controller;
+mod forward_velocity_controller;
 mod gain;
-pub mod pid;
+mod pid;

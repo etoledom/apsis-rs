@@ -10,13 +10,13 @@ use simulator::simulator::Simulator;
 use simulator::types;
 use units::units::Seconds;
 
-use crate::controller::controller::Controller;
+use crate::controller::controller::{AirframeLimits, Controller};
 use crate::simulator::drone::Drone;
 use crate::simulator::force_model::context::Context;
 use crate::simulator::force_model::force_model::ForceModel;
 use crate::simulator::types::acceleration_3d::WorldFrameAcceleration;
 use crate::units::acceleration::Acceleration;
-use crate::units::units::{Meters, SecondsLiteral};
+use crate::units::units::{Meters, SecondsLiteral, Velocity};
 
 struct Wind;
 
@@ -40,7 +40,14 @@ fn main() {
 
     // let controller = Controller::new();
     // let mut mission = MissionRuntime::new();
-    let mut flight_controller = Controller::new(Meters(10.0));
+    let mut flight_controller = Controller::new(
+        Meters(10.0),
+        Velocity(0.0),
+        AirframeLimits {
+            max_pitch: simulator.drone.max_pitch().to_radians(),
+            max_roll: simulator.drone.max_roll().to_radians(),
+        },
+    );
 
     let delta_t = 0.1.seconds();
 

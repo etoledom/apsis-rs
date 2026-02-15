@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul};
+use std::ops::{Add, Div, Mul, Neg};
 
 use crate::units::units::Seconds;
 
@@ -71,7 +71,7 @@ impl Default for DegreesPerSecond {
 // =====
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct Radians(pub f64);
 
 impl Radians {
@@ -90,6 +90,14 @@ impl Radians {
     pub fn is_zero(&self) -> bool {
         self.0 == 0.0
     }
+
+    pub fn clamp(self, min: Radians, max: Radians) -> Radians {
+        Radians(self.0.clamp(min.0, max.0))
+    }
+
+    pub fn to_degrees(self) -> Degrees {
+        Degrees(self.0.to_degrees())
+    }
 }
 
 impl Div<Radians> for Radians {
@@ -105,6 +113,22 @@ impl Mul<f64> for Degrees {
 
     fn mul(self, rhs: f64) -> Self::Output {
         Degrees(self.0 * rhs)
+    }
+}
+
+impl Add for Radians {
+    type Output = Radians;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Radians(self.0 + rhs.0)
+    }
+}
+
+impl Neg for Radians {
+    type Output = Radians;
+
+    fn neg(self) -> Self::Output {
+        Radians(-self.0)
     }
 }
 

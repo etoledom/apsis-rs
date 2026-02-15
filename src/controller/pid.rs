@@ -6,7 +6,10 @@ use std::{
 use crate::{
     controller::gain::{Gain, LinearGain},
     simulator::types::throttle::Throttle,
-    units::units::{Meters, Seconds, Velocity},
+    units::{
+        angles::Radians,
+        units::{Meters, Seconds, Velocity},
+    },
 };
 
 #[derive(Default)]
@@ -68,6 +71,7 @@ where
 
 pub type AltitudePID = PID<Meters, Velocity, LinearGain, LinearGain, LinearGain>;
 pub type ClimbPID = PID<Velocity, Throttle, LinearGain, LinearGain, LinearGain>;
+pub type ForwardVelocityPID = PID<Velocity, Radians, LinearGain, LinearGain, LinearGain>;
 
 #[cfg(test)]
 mod test {

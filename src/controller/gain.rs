@@ -1,6 +1,9 @@
 use crate::{
     simulator::types::throttle::Throttle,
-    units::units::{Meters, Velocity},
+    units::{
+        angles::Radians,
+        units::{Meters, Velocity},
+    },
 };
 
 pub trait Gain<Error, Output> {
@@ -28,6 +31,12 @@ impl Gain<Meters, Velocity> for LinearGain {
 impl Gain<Velocity, Throttle> for LinearGain {
     fn apply(&self, value: Velocity) -> Throttle {
         Throttle::clamp(self.0 * value.0)
+    }
+}
+
+impl Gain<Velocity, Radians> for LinearGain {
+    fn apply(&self, value: Velocity) -> Radians {
+        Radians(self.0 * value.0)
     }
 }
 

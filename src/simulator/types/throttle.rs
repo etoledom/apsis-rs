@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add, AddAssign};
 
 use crate::simulator::types::unit_interval::UnitInterval;
 
@@ -25,5 +25,19 @@ impl Throttle {
     #[inline(always)]
     pub fn get(self) -> f64 {
         self.0.get()
+    }
+}
+
+impl AddAssign for Throttle {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Add for Throttle {
+    type Output = Throttle;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Throttle::clamp(self.0.get() + rhs.0.get())
     }
 }

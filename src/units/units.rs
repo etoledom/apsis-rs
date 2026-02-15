@@ -1,6 +1,6 @@
 use std::{
     cmp::Ordering,
-    ops::{Add, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 use crate::units::acceleration::Acceleration;
@@ -89,6 +89,10 @@ impl Velocity {
 
     pub fn abs(&self) -> Self {
         Velocity(self.0.abs())
+    }
+
+    pub fn clamp(&self, min: f64, max: f64) -> Self {
+        Self(self.0.clamp(min, max))
     }
 }
 
@@ -251,4 +255,22 @@ impl Neg for Velocity {
     }
 }
 
-// impl Eq for Velocity {}
+impl AddAssign for Meters {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Div<f64> for Meters {
+    type Output = Meters;
+
+    fn div(self, rhs: f64) -> Self::Output {
+        Meters(self.0 / rhs)
+    }
+}
+
+impl AddAssign for Velocity {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0
+    }
+}

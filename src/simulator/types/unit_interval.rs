@@ -1,3 +1,5 @@
+use std::ops::{Add, AddAssign};
+
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct UnitInterval(f64);
@@ -24,6 +26,20 @@ impl UnitInterval {
 impl Default for UnitInterval {
     fn default() -> Self {
         Self(Default::default())
+    }
+}
+
+impl AddAssign for UnitInterval {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
+impl Add for UnitInterval {
+    type Output = UnitInterval;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        UnitInterval(self.0 + rhs.0)
     }
 }
 

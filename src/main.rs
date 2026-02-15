@@ -1,9 +1,7 @@
+mod controller;
 mod mission_controller;
 mod simulator;
 mod units;
-
-use mission_controller::controller::Controller;
-use mission_controller::mission_runtime::MissionRuntime;
 
 use mission_controller::segment_def::SegmentDef;
 use simulator::default_drone::DefaultDrone;
@@ -12,11 +10,13 @@ use simulator::simulator::Simulator;
 use simulator::types;
 use units::units::Seconds;
 
+use crate::controller::controller::Controller;
 use crate::simulator::drone::Drone;
 use crate::simulator::force_model::context::Context;
 use crate::simulator::force_model::force_model::ForceModel;
 use crate::simulator::types::acceleration_3d::WorldFrameAcceleration;
 use crate::units::acceleration::Acceleration;
+use crate::units::units::{Meters, SecondsLiteral};
 
 struct Wind;
 
@@ -38,32 +38,23 @@ fn main() {
     let mut simulator = Simulator::new(DefaultDrone {});
     // simulator.add_force(wind);
 
-    let controller = Controller::new();
-    let mut mission = MissionRuntime::new();
-    let mut current_inputs = Inputs::default();
+    // let controller = Controller::new();
+    // let mut mission = MissionRuntime::new();
+    let mut flight_controller = Controller::new(Meters(10.0));
+
+    let delta_t = 0.1.seconds();
 
     for _ in 0..500 {
-        let inputs = if let Some(setpoint) = mission.update(sim_time, &simulator.state) {
-            controller.control(setpoint, &simulator.state, current_inputs)
-        } else {
-            Inputs::default()
-        };
+        let inputs = flight_controller.update(&simulator.state, delta_t);
 
-        current_inputs = inputs;
+        simulator.tick(delta_t, &inputs);
 
-        simulator.tick(Seconds(0.1), &inputs);
-
-        sim_time = Seconds(sim_time.0 + 0.05);
-
-        let segment = mission.current_segment().unwrap_or(&SegmentDef::Idle {
-            duration: Seconds(0.0),
-        });
+        sim_time = sim_time + delta_t;
 
         println!(
-            "Time: {:.2}: Step: {}, Throttle: {:.2}, velocity: {:.2}, Altitude: {:.2}, geo: ({}, {})",
+            "Time: {:.2}, Throttle: {:.2}, velocity: {:.2}, Altitude: {:.2}, geo: ({}, {})",
             sim_time.0,
-            segment,
-            current_inputs.throttle.get(),
+            inputs.throttle.get(),
             simulator.state.velocity_ned.down().0,
             simulator.state.altitude.0,
             simulator.state.latitude,

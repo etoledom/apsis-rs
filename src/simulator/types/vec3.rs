@@ -7,7 +7,7 @@ pub struct Vec3<T> {
     pub z: T,
 }
 
-trait SquareRootable {
+pub trait SquareRootable {
     fn sqrt(self) -> Self;
 }
 

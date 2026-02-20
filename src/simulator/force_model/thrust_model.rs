@@ -190,7 +190,7 @@ mod tests {
         assert_relative_eq!(acceleration.down().raw(), -G_EARTH.raw(), epsilon = 1e-2);
         // total magnitude is equal to the max thrust
         assert_relative_eq!(
-            acceleration.magnitude().raw(),
+            acceleration.norm().raw(),
             drone.max_thrust_acceleration().raw()
         );
     }

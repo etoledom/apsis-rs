@@ -1,15 +1,16 @@
+use crate::{impl_debug_unit, units::units::Seconds};
+use std::fmt;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
-
-use crate::units::units::Seconds;
 
 // =====
 // Degrees
 // =====
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Degrees(pub f64);
 
+#[allow(dead_code)]
 impl Degrees {
     pub fn to_radians(&self) -> Radians {
         Radians(self.0.to_radians())
@@ -71,24 +72,16 @@ impl Default for DegreesPerSecond {
 // =====
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Default)]
 pub struct Radians(pub f64);
 
 impl Radians {
-    pub fn hypot(&self, other: Radians) -> Radians {
-        Radians(self.0.hypot(other.0))
-    }
-
     pub fn sin(&self) -> f64 {
         self.0.sin()
     }
 
     pub fn cos(&self) -> f64 {
         self.0.cos()
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.0 == 0.0
     }
 
     pub fn clamp(self, min: Radians, max: Radians) -> Radians {
@@ -207,7 +200,7 @@ impl Add<Degrees> for Degrees {
 // =======
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Default, Debug)]
 pub struct AngularVelocity(f64);
 
 impl AngularVelocity {
@@ -281,7 +274,7 @@ impl Sub for AngularVelocity {
 // =======
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, PartialEq, Default, Debug)]
 pub struct AngularAcceleration(f64);
 
 impl AngularAcceleration {
@@ -338,3 +331,6 @@ impl Sub for AngularAcceleration {
         AngularAcceleration::new(self.raw() - rhs.raw())
     }
 }
+
+impl_debug_unit!(AngularVelocity, "rad/s");
+impl_debug_unit!(AngularAcceleration, "rad/s2");

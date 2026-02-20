@@ -35,10 +35,6 @@ impl Acceleration3D {
         Acceleration3D::new(rotated.y, rotated.x, self.0.z)
     }
 
-    fn to_world_frame(self) -> WorldFrameAcceleration {
-        WorldFrameAcceleration(self)
-    }
-
     fn x(&self) -> Acceleration {
         self.0.x
     }
@@ -80,6 +76,7 @@ impl Sub for Acceleration3D {
 #[derive(Copy, Clone, Debug)]
 pub struct BodyFrameAcceleration(Acceleration3D);
 
+#[allow(dead_code)]
 impl BodyFrameAcceleration {
     pub fn new(forward: Acceleration, right: Acceleration, down: Acceleration) -> Self {
         Self(Acceleration3D::new(forward, right, down))
@@ -126,10 +123,9 @@ impl WorldFrameAcceleration {
     pub fn from_down(down: Acceleration) -> Self {
         Self(Acceleration3D::down(down))
     }
-    pub fn magnitude(&self) -> Acceleration {
-        Acceleration(
-            (self.north().0.powi(2) + self.east().0.powi(2) + self.down().0.powi(2)).sqrt(),
-        )
+    #[allow(dead_code)] // Used in tests
+    pub fn norm(&self) -> Acceleration {
+        Acceleration(self.to_raw_vec3().norm())
     }
     pub fn normalized(self) -> Vec3<f64> {
         self.to_raw_vec3().normalized()
@@ -173,29 +169,9 @@ impl From<WorldFrameAcceleration> for Vec3<Acceleration> {
     }
 }
 
-impl WorldFrameAcceleration {
-    pub fn ground_acceleration(&self) -> WorldFrameGroundAcceleration {
-        WorldFrameGroundAcceleration::new(self.north(), self.east())
-    }
-}
-
-pub struct WorldFrameGroundAcceleration(Vec2<Acceleration>);
-impl WorldFrameGroundAcceleration {
-    pub fn new(north: Acceleration, east: Acceleration) -> Self {
-        Self(Vec2 { x: east, y: north })
-    }
-    pub fn north(&self) -> Acceleration {
-        self.0.y
-    }
-
-    pub fn east(&self) -> Acceleration {
-        self.0.x
-    }
-}
-
 #[derive(Default, Clone, Copy)]
-pub struct WorldFrameGroundSpeed(Vec2<Velocity>);
-impl WorldFrameGroundSpeed {
+pub struct WorldFrameGroundVelocity(Vec2<Velocity>);
+impl WorldFrameGroundVelocity {
     pub fn new(north: Velocity, east: Velocity) -> Self {
         Self(Vec2 { x: east, y: north })
     }
@@ -208,16 +184,8 @@ impl WorldFrameGroundSpeed {
     }
 }
 
-impl Mul<Seconds> for WorldFrameGroundAcceleration {
-    type Output = WorldFrameGroundSpeed;
-
-    fn mul(self, rhs: Seconds) -> Self::Output {
-        WorldFrameGroundSpeed::new(self.north() * rhs, self.east() * rhs)
-    }
-}
-
-impl Add for WorldFrameGroundSpeed {
-    type Output = WorldFrameGroundSpeed;
+impl Add for WorldFrameGroundVelocity {
+    type Output = WorldFrameGroundVelocity;
 
     fn add(self, rhs: Self) -> Self::Output {
         Self::new(self.north() + rhs.north(), self.east() + rhs.east())

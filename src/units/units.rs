@@ -1,12 +1,16 @@
 use std::{
     cmp::Ordering,
+    fmt,
     ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
-use crate::units::acceleration::Acceleration;
+use crate::units::{
+    acceleration::Acceleration,
+    angles::{Degrees, Radians},
+};
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Seconds(pub f64);
 
 impl Seconds {
@@ -44,7 +48,7 @@ impl PartialOrd for Seconds {
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Meters(pub f64);
 
 impl Meters {
@@ -89,7 +93,7 @@ pub struct PerMeter(pub f64); // 1/m
 pub struct PerSecond(pub f64); // 1/m
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
+#[derive(Copy, Clone, Default, PartialEq, Debug)]
 pub struct Velocity(pub f64); // m/s
 
 impl Velocity {
@@ -125,10 +129,6 @@ impl VelocityLiteral for f64 {
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct VelocitySquare(pub f64); // m2/s2 or (m/s)2
-
-#[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
-pub struct Kilograms(pub f64);
 
 impl Sub<Seconds> for Seconds {
     type Output = Seconds;
@@ -290,3 +290,21 @@ impl AddAssign for Velocity {
         self.0 += rhs.0
     }
 }
+
+#[macro_export]
+macro_rules! impl_debug_unit {
+    ($ty:ty, $suffix:expr) => {
+        impl fmt::Display for $ty {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "{:.2}{}", self.0, $suffix)
+            }
+        }
+    };
+}
+
+impl_debug_unit!(Seconds, "s");
+impl_debug_unit!(Meters, "m");
+impl_debug_unit!(Velocity, "m/s");
+impl_debug_unit!(Acceleration, "m/s2");
+impl_debug_unit!(Degrees, "°");
+impl_debug_unit!(Radians, "");

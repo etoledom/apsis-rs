@@ -1,5 +1,5 @@
 mod controller;
-mod mission_controller;
+
 mod simulator;
 mod units;
 
@@ -75,18 +75,18 @@ fn main() {
             flight_controller.set_target_velocity(VelocityNED::new(3.mps(), 2.mps(), 0.mps()));
         }
 
-        if i % 30 == 0 {
+        if i % 10 == 0 {
             println!(
-                "Time: {:.1}, Throttle: {:.2}, target_v_n: {}, Velocity_north: {:.2}, Velocity_east: {:.2}, Pitch: {:.1}, Roll: {:.1}, velocity_up: {:.2}, Altitude: {:.2}",
-                sim_time.0,
+                "Time: {}, Throttle: {:.2}, target_v_n: {}, Velocity_north: {}, Velocity_east: {}, Pitch: {}, Roll: {}, velocity_up: {}, Altitude: {}",
+                sim_time,
                 inputs.throttle.get(),
-                flight_controller.get_target_velocity().north().0,
-                simulator.state.velocity_ned.north().0,
-                simulator.state.velocity_ned.east().0,
-                simulator.state.attitude.pitch().to_degrees().0,
-                simulator.state.attitude.roll().to_degrees().0,
-                -simulator.state.velocity_ned.down().0,
-                simulator.state.altitude.0,
+                flight_controller.get_target_velocity().north(),
+                simulator.state.velocity_ned.north(),
+                simulator.state.velocity_ned.east(),
+                simulator.state.attitude.pitch().to_degrees(),
+                simulator.state.attitude.roll().to_degrees(),
+                -simulator.state.velocity_ned.down(),
+                simulator.state.altitude,
             );
         }
     }

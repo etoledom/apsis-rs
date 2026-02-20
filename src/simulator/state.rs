@@ -4,7 +4,7 @@ use crate::{
         vec2::Vec2, velocity_ned::VelocityNED,
     },
     units::{
-        angles::{Degrees, DegreesPerSecond, Radians},
+        angles::{Degrees, DegreesPerSecond},
         units::{Meters, Velocity},
     },
 };

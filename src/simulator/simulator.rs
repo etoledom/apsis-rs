@@ -7,7 +7,7 @@ use crate::{
         inputs::Inputs,
         state::State,
         types::{
-            acceleration_3d::{WorldFrameAcceleration, WorldFrameGroundSpeed},
+            acceleration_3d::{WorldFrameAcceleration, WorldFrameGroundVelocity},
             angular_acceleration_3d::AngularAcceleration3D,
             pitch::Pitch,
             quaternion::Quaternion,
@@ -100,7 +100,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
 
     fn update_horizontal_position(
         &mut self,
-        ground_sleed: WorldFrameGroundSpeed,
+        ground_sleed: WorldFrameGroundVelocity,
         delta_t: Seconds,
     ) {
         // Distance traveled North/East

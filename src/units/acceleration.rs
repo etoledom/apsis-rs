@@ -4,7 +4,7 @@ use std::ops::{Add, Div, Neg, Sub};
 use crate::units::units::{PerMeter, Seconds, Velocity, VelocitySquare};
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 pub struct Acceleration(pub f64); // m/s²
 
 impl Acceleration {

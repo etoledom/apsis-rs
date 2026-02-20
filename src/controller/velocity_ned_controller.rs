@@ -45,7 +45,7 @@ mod tests {
 
         let acc_target = controller.update(current, 0.1.seconds());
 
-        assert_eq!(acc_target.magnitude().0, 0.0);
+        assert_eq!(acc_target.norm().0, 0.0);
     }
 
     #[test]

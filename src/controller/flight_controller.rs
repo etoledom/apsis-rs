@@ -70,13 +70,6 @@ impl FlightController {
             self.rate_controller
                 .update(angular_rates_target, telemetry.angular_velocity_body, dt);
 
-        // println!("acc_target north: {}", acc_target.north().0);
-        // println!("q_target pitch: {}", q_target.pitch().to_degrees().0);
-        // println!(
-        //     "q_current pitch: {}",
-        //     telemetry.attitude.pitch().to_degrees().0
-        // );
-
         Inputs {
             throttle,
             pitch,

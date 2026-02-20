@@ -2,7 +2,7 @@ use std::ops::{AddAssign, Mul, Sub};
 
 use crate::{
     simulator::types::{
-        acceleration_3d::WorldFrameGroundSpeed, position_ned::PositionNed, vec3::Vec3,
+        acceleration_3d::WorldFrameGroundVelocity, position_ned::PositionNed, vec3::Vec3,
     },
     units::units::{Seconds, Velocity, VelocityLiteral},
 };
@@ -19,6 +19,7 @@ impl VelocityNED {
             z: down,
         })
     }
+    #[allow(dead_code)] // used in tests
     pub fn zero() -> VelocityNED {
         Self::new(0.mps(), 0.mps(), 0.mps())
     }
@@ -35,8 +36,8 @@ impl VelocityNED {
     pub fn update_down(&mut self, new_value: Velocity) {
         self.0.z = new_value;
     }
-    pub fn ground_speed(&self) -> WorldFrameGroundSpeed {
-        WorldFrameGroundSpeed::new(self.north(), self.east())
+    pub fn ground_speed(&self) -> WorldFrameGroundVelocity {
+        WorldFrameGroundVelocity::new(self.north(), self.east())
     }
 }
 

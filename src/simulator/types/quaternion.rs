@@ -16,6 +16,7 @@ pub struct Quaternion {
     pub z: f64,
 }
 
+#[allow(dead_code)]
 impl Quaternion {
     pub fn pure(x: f64, y: f64, z: f64) -> Self {
         Quaternion { w: 0.0, x, y, z }
@@ -171,40 +172,6 @@ impl Quaternion {
             ],
         ]
     }
-
-    pub fn to_axis_angle(self) -> AxisAngle<f64> {
-        // Ensure q.w is in valid range for acos
-        let w = self.w.clamp(-1.0, 1.0);
-        let angle = 2.0 * w.acos();
-
-        let sin_half = (1.0 - w * w).sqrt(); // sin(angle/2)
-
-        if sin_half < 1e-6 {
-            // Angle is near zero, axis is arbitrary
-            AxisAngle {
-                axis: Vec3 {
-                    x: 1.0,
-                    y: 0.0,
-                    z: 0.0,
-                },
-                angle: 0.0,
-            }
-        } else {
-            AxisAngle {
-                axis: Vec3 {
-                    x: self.x / sin_half,
-                    y: self.y / sin_half,
-                    z: self.z / sin_half,
-                },
-                angle,
-            }
-        }
-    }
-}
-
-pub struct AxisAngle<T> {
-    pub axis: Vec3<T>,
-    pub angle: T,
 }
 
 impl Default for Quaternion {

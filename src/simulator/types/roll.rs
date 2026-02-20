@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::simulator::types::signed_unit_interval::SignedUnitInterval;
 
 #[derive(Clone, Copy, Default)]
@@ -23,5 +25,13 @@ impl Roll {
 
     pub fn zero() -> Self {
         Self(SignedUnitInterval::clamp(0.0))
+    }
+}
+
+impl Add for Roll {
+    type Output = Roll;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Roll::clamp(self.get() + rhs.get())
     }
 }

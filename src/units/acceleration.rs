@@ -1,14 +1,17 @@
 use core::ops::Mul;
 use std::ops::{Add, Div, Neg, Sub};
 
-use crate::{
-    simulator::types::drag::Drag,
-    units::units::{PerMeter, Seconds, Velocity, VelocitySquare},
-};
+use crate::units::units::{PerMeter, Seconds, Velocity, VelocitySquare};
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Acceleration(pub f64); // m/s²
+
+impl Acceleration {
+    pub fn raw(&self) -> f64 {
+        self.0
+    }
+}
 
 impl Neg for Acceleration {
     type Output = Acceleration;

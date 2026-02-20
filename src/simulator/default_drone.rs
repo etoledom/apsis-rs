@@ -1,14 +1,9 @@
 use crate::{
     simulator::{
         drone::{DragCoefficient, Drone},
-        types::{drag::Drag, throttle::Throttle},
+        types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
     },
-    units::{
-        acceleration::{Acceleration, AccelerationLiteral},
-        angles::{Degrees, DegreesLiteral, DegreesPerSecond},
-        consts::G_EARTH,
-        units::Kilograms,
-    },
+    units::angles::{AngularAcceleration, Degrees, DegreesLiteral, DegreesPerSecond},
 };
 
 #[derive(Clone, Copy)]
@@ -23,12 +18,16 @@ impl Drone for DefaultDrone {
         45.degrees()
     }
 
-    fn thrust_to_waight_ratio(&self) -> f64 {
-        2.0
+    fn max_pitch_acceleration(&self) -> AngularAcceleration {
+        AngularAcceleration::new(1.5)
     }
 
-    fn mass(&self) -> Kilograms {
-        Kilograms(0.2)
+    fn max_roll_acceleration(&self) -> AngularAcceleration {
+        AngularAcceleration::new(1.5)
+    }
+
+    fn thrust_to_waight_ratio(&self) -> f64 {
+        2.0
     }
 
     fn max_heading_rate(&self) -> DegreesPerSecond {
@@ -46,5 +45,13 @@ impl Drone for DefaultDrone {
             horizontal: Drag::new(0.4),
             forward: Drag::new(0.2),
         }
+    }
+
+    fn pitch_damping_coefficient(&self) -> AngularDamping {
+        AngularDamping::new(2.0)
+    }
+
+    fn roll_damping_coefficient(&self) -> AngularDamping {
+        AngularDamping::new(2.0)
     }
 }

@@ -5,20 +5,21 @@ use std::{
 
 use crate::{
     controller::gain::{Gain, LinearGain},
-    simulator::types::throttle::Throttle,
+    simulator::types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
     units::{
-        angles::Radians,
+        acceleration::Acceleration,
+        angles::{AngularVelocity, Radians},
         units::{Meters, Seconds, Velocity},
     },
 };
 
 #[derive(Default)]
 pub struct PID<Error, Output, Kp, Ki, Kd> {
-    kp: Kp,
-    ki: Ki,
-    kd: Kd,
+    pub kp: Kp,
+    pub ki: Ki,
+    pub kd: Kd,
 
-    integral: Error,
+    pub integral: Error,
     previous_error: Option<Error>,
 
     _output: PhantomData<Output>, // Output is only used in the trait
@@ -38,11 +39,11 @@ where
     Ki: Gain<Error, Output> + Default,
     Kd: Gain<Error, Output> + Default,
 {
-    pub fn new(kp: Kp, ki: Ki, kd: Kd) -> Self {
+    pub fn new(kp: impl Into<Kp>, ki: impl Into<Ki>, kd: impl Into<Kd>) -> Self {
         Self {
-            kp,
-            ki,
-            kd,
+            kp: kp.into(),
+            ki: ki.into(),
+            kd: kd.into(),
             integral: Error::default(),
             previous_error: None,
             _output: PhantomData,
@@ -71,7 +72,18 @@ where
 
 pub type AltitudePID = PID<Meters, Velocity, LinearGain, LinearGain, LinearGain>;
 pub type ClimbPID = PID<Velocity, Throttle, LinearGain, LinearGain, LinearGain>;
-pub type ForwardVelocityPID = PID<Velocity, Radians, LinearGain, LinearGain, LinearGain>;
+
+pub type PitchPID = PID<Radians, AngularVelocity, LinearGain, LinearGain, LinearGain>;
+pub type RollPID = PID<Radians, AngularVelocity, LinearGain, LinearGain, LinearGain>;
+pub type YawPID = PID<Radians, AngularVelocity, LinearGain, LinearGain, LinearGain>;
+
+pub type VelocityNorthPID = PID<Velocity, Acceleration, LinearGain, LinearGain, LinearGain>;
+pub type VelocityEastPID = PID<Velocity, Acceleration, LinearGain, LinearGain, LinearGain>;
+pub type VelocityDownPID = PID<Velocity, Acceleration, LinearGain, LinearGain, LinearGain>;
+
+pub type RollRatePID = PID<AngularVelocity, Roll, LinearGain, LinearGain, LinearGain>;
+pub type PitchRatePID = PID<AngularVelocity, Pitch, LinearGain, LinearGain, LinearGain>;
+pub type YawRatePID = PID<AngularVelocity, Yaw, LinearGain, LinearGain, LinearGain>;
 
 #[cfg(test)]
 mod test {

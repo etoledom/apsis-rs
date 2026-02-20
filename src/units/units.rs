@@ -74,9 +74,19 @@ impl MettersLiteral for i32 {
     }
 }
 
+impl MettersLiteral for f64 {
+    fn meters(self) -> Meters {
+        Meters(self)
+    }
+}
+
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct PerMeter(pub f64); // 1/m
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub struct PerSecond(pub f64); // 1/m
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
@@ -103,6 +113,12 @@ pub trait VelocityLiteral {
 impl VelocityLiteral for i32 {
     fn mps(self) -> Velocity {
         Velocity(self as f64)
+    }
+}
+
+impl VelocityLiteral for f64 {
+    fn mps(self) -> Velocity {
+        Velocity(self)
     }
 }
 

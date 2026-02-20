@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use crate::simulator::types::signed_unit_interval::SignedUnitInterval;
 
 #[derive(Clone, Copy, Default)]
@@ -19,5 +21,13 @@ impl Yaw {
     #[inline(always)]
     pub fn get(self) -> f64 {
         self.0.get()
+    }
+}
+
+impl Add for Yaw {
+    type Output = Yaw;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Yaw::clamp(self.get() + rhs.get())
     }
 }

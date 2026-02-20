@@ -15,6 +15,34 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for GravityModel {
         _: &Context<Vehicle>,
         _: Seconds,
     ) -> crate::simulator::types::acceleration_3d::WorldFrameAcceleration {
-        WorldFrameAcceleration::from_vertical(G_EARTH)
+        WorldFrameAcceleration::from_down(G_EARTH)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State},
+        units::units::SecondsLiteral,
+    };
+
+    use super::*;
+
+    #[test]
+    fn gravity_always_points_down() {
+        let model = GravityModel {};
+        let drone = DefaultDrone {};
+        let state = State::default();
+        let inputs = Inputs::default();
+        let ctx = Context {
+            state: &state,
+            inputs: &inputs,
+            vehicle: &drone,
+        };
+        let acc = model.acceleration_contribution(&ctx, 1.0.seconds());
+
+        assert_eq!(acc.north().0, 0.0, "gravity should have no north component");
+        assert_eq!(acc.east().0, 0.0, "gravity should have no east component");
+        assert!(acc.down().0 > 0.0, "gravity should be positive down in NED");
     }
 }

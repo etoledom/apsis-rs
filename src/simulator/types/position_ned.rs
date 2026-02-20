@@ -1,11 +1,8 @@
-use std::{
-    iter::Sum,
-    ops::{Add, AddAssign, Mul},
-};
+use std::ops::{Add, AddAssign, Mul};
 
 use crate::{
     simulator::types::vec3::Vec3,
-    units::units::{Meters, Seconds},
+    units::units::{Meters, MettersLiteral},
 };
 
 #[repr(transparent)]
@@ -19,6 +16,9 @@ impl PositionNed {
             y: east,
             z: down,
         })
+    }
+    pub fn from_altitude_ned(down: Meters) -> Self {
+        Self::new(0.meters(), 0.meters(), down)
     }
     pub fn north(&self) -> Meters {
         self.0.x

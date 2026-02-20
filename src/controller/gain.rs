@@ -1,7 +1,8 @@
 use crate::{
-    simulator::types::throttle::Throttle,
+    simulator::types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
     units::{
-        angles::Radians,
+        acceleration::Acceleration,
+        angles::{AngularVelocity, Radians},
         units::{Meters, Velocity},
     },
 };
@@ -11,7 +12,7 @@ pub trait Gain<Error, Output> {
 }
 
 #[derive(Clone, Copy, Default)]
-pub struct LinearGain(f64);
+pub struct LinearGain(pub f64);
 
 impl LinearGain {
     pub fn new(value: f64) -> Self {
@@ -19,6 +20,18 @@ impl LinearGain {
     }
     pub fn zero() -> Self {
         LinearGain(0.0)
+    }
+}
+
+impl From<f64> for LinearGain {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<i32> for LinearGain {
+    fn from(value: i32) -> Self {
+        Self(value as f64)
     }
 }
 
@@ -37,6 +50,42 @@ impl Gain<Velocity, Throttle> for LinearGain {
 impl Gain<Velocity, Radians> for LinearGain {
     fn apply(&self, value: Velocity) -> Radians {
         Radians(self.0 * value.0)
+    }
+}
+
+impl Gain<Radians, Pitch> for LinearGain {
+    fn apply(&self, value: Radians) -> Pitch {
+        Pitch::clamp(self.0 * value.0)
+    }
+}
+
+impl Gain<Velocity, Acceleration> for LinearGain {
+    fn apply(&self, value: Velocity) -> Acceleration {
+        Acceleration(self.0 * value.0)
+    }
+}
+
+impl Gain<Radians, AngularVelocity> for LinearGain {
+    fn apply(&self, value: Radians) -> AngularVelocity {
+        (self.0 * value.0).into()
+    }
+}
+
+impl Gain<AngularVelocity, Roll> for LinearGain {
+    fn apply(&self, value: AngularVelocity) -> Roll {
+        Roll::clamp(self.0 * value.raw())
+    }
+}
+
+impl Gain<AngularVelocity, Pitch> for LinearGain {
+    fn apply(&self, value: AngularVelocity) -> Pitch {
+        Pitch::clamp(self.0 * value.raw())
+    }
+}
+
+impl Gain<AngularVelocity, Yaw> for LinearGain {
+    fn apply(&self, value: AngularVelocity) -> Yaw {
+        Yaw::clamp(self.0 * value.raw())
     }
 }
 

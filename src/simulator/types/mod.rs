@@ -1,7 +1,11 @@
 pub mod acceleration_3d;
+pub mod angular_acceleration_3d;
+pub mod angular_damping;
+pub mod angular_velocity_3d;
 pub mod drag;
 pub mod pitch;
 pub mod position_ned;
+pub mod quaternion;
 pub mod roll;
 pub mod signed_unit_interval;
 pub mod throttle;

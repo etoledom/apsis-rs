@@ -24,7 +24,6 @@ pub trait Drone {
         G_EARTH * self.thrust_to_waight_ratio()
     }
 
-    #[allow(dead_code)] // Used for unit tests
     fn hover_throttle(&self) -> Throttle {
         Throttle::clamp(G_EARTH / self.max_thrust_acceleration())
     }

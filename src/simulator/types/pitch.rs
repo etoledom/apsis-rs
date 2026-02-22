@@ -5,7 +5,6 @@ use crate::simulator::types::signed_unit_interval::SignedUnitInterval;
 #[derive(Clone, Copy, Default)]
 pub struct Pitch(SignedUnitInterval);
 
-#[allow(dead_code)]
 impl Pitch {
     pub fn new(value: f64) -> Option<Self> {
         if let Some(value) = SignedUnitInterval::new(value) {

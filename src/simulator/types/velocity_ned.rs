@@ -19,7 +19,7 @@ impl VelocityNED {
             z: down,
         })
     }
-    #[allow(dead_code)] // used in tests
+
     pub fn zero() -> VelocityNED {
         Self::new(0.mps(), 0.mps(), 0.mps())
     }

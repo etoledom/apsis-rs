@@ -3,10 +3,7 @@ use std::{
     ops::{Add, Mul, Neg},
 };
 
-use crate::{
-    simulator::types::{angular_velocity_3d::AngularVelocity3D, vec3::Vec3},
-    units::angles::Radians,
-};
+use crate::{simulator::types::angular_velocity_3d::AngularVelocity3D, units::angles::Radians};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion {
@@ -16,7 +13,6 @@ pub struct Quaternion {
     pub z: f64,
 }
 
-#[allow(dead_code)]
 impl Quaternion {
     pub fn pure(x: f64, y: f64, z: f64) -> Self {
         Quaternion { w: 0.0, x, y, z }

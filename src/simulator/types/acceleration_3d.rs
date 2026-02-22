@@ -76,7 +76,6 @@ impl Sub for Acceleration3D {
 #[derive(Copy, Clone, Debug)]
 pub struct BodyFrameAcceleration(Acceleration3D);
 
-#[allow(dead_code)]
 impl BodyFrameAcceleration {
     pub fn new(forward: Acceleration, right: Acceleration, down: Acceleration) -> Self {
         Self(Acceleration3D::new(forward, right, down))
@@ -123,7 +122,7 @@ impl WorldFrameAcceleration {
     pub fn from_down(down: Acceleration) -> Self {
         Self(Acceleration3D::down(down))
     }
-    #[allow(dead_code)] // Used in tests
+
     pub fn norm(&self) -> Acceleration {
         Acceleration(self.to_raw_vec3().norm())
     }

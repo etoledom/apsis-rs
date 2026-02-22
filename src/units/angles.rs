@@ -10,7 +10,6 @@ use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 #[derive(Copy, Clone, PartialEq)]
 pub struct Degrees(pub f64);
 
-#[allow(dead_code)]
 impl Degrees {
     pub fn to_radians(&self) -> Radians {
         Radians(self.0.to_radians())

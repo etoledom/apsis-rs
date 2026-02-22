@@ -6,3 +6,5 @@ mod gain;
 mod pid;
 mod rate_controller;
 mod velocity_ned_controller;
+
+pub use flight_controller::*;

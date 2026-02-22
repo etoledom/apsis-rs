@@ -35,17 +35,13 @@ pub struct FlightController {
 }
 
 impl FlightController {
-    pub fn new(
-        altitude_target: Meters,
-        velocity_target: VelocityNED,
-        limits: AirframeLimits,
-    ) -> Self {
+    pub fn new(altitude_target: Meters, velocity_target: VelocityNED) -> Self {
         Self {
             altitude_controller: AltitudeController::new(altitude_target),
             velocity_ned_controller: VelocityNedController::new(velocity_target),
             attitude_controller: AttitudeController::new(),
             rate_controller: RateController::new(),
-            limits,
+            limits: Default::default(), // not used for now. Keeping it in case is needed later.
         }
     }
 
@@ -140,7 +136,6 @@ mod flight_controller_tests {
         FlightController::new(
             Meters(10.0),        // target altitude
             VelocityNED::zero(), // hover
-            AirframeLimits::default(),
         )
     }
 
@@ -304,7 +299,6 @@ mod flight_controller_tests {
         let mut ctrl = FlightController::new(
             Meters(-10.0),
             VelocityNED::new(1.mps(), 0.mps(), 0.mps()), // target moving north
-            AirframeLimits::default(),
         );
 
         let inputs = ctrl.update(&nominal_state(), Seconds(0.1));

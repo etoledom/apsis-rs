@@ -1,1 +1,3 @@
 /target
+*/**/target
+flight_core/target

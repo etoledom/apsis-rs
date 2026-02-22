@@ -1,6 +1,5 @@
 use crate::{
-    simulator::types::{angular_damping::AngularDamping, drag::Drag, yaw::Yaw},
-    types::throttle::Throttle,
+    simulator::types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle, yaw::Yaw},
     units::{
         acceleration::Acceleration,
         angles::{AngularAcceleration, Degrees, DegreesPerSecond},

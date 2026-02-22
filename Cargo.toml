@@ -1,9 +1,7 @@
-[package]
-name = "drone-sim"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-
-[dev-dependencies]
-approx = "0.5"
+[workspace]
+members = [
+    "flight_core",
+    # "flight_ui",
+    # "flight_mission",
+]
+resolver = "2"

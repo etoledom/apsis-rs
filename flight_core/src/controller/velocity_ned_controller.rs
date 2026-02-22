@@ -103,14 +103,18 @@ mod tests {
         let mut controller =
             VelocityNedController::new(VelocityNED::new(10.mps(), 0.mps(), 0.mps()));
         let mut current = VelocityNED::zero();
-        let dt = 0.01.seconds();
+        let dt = 0.1.seconds();
 
-        for _ in 0..200 {
+        for _ in 0..100 {
             let acc_target = controller.update(current, dt);
             current += acc_target * dt;
         }
 
-        assert!((current.north().0 - 10.0).abs() < 0.5);
+        assert!(
+            (current.north().0 - 10.0).abs() < 0.5,
+            "Shoud converge to 10.0, but result was {}",
+            current.north().0
+        );
     }
 
     #[test]

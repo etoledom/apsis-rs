@@ -1,4 +1,4 @@
-use crate::theme;
+use crate::{theme, widgets::components::data_label::DataLabel};
 use eframe::egui;
 use egui::{Painter, Pos2, Stroke, pos2, vec2};
 use flight_core::units::angles::{Degrees, Radians};
@@ -327,17 +327,17 @@ impl AttitudeIndicator {
             sym_stroke,
         );
 
-        // Center dot
-        // painter.circle_filled(center, 3.0, theme::YELLOW);
-
         // ── READOUT ──
-        // Numeric pitch and roll values below the circle for precise reading.
+        //
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
-            ui.label(theme::label("P:"));
-            ui.label(theme::value(format!("{:+.1}°  ", self.pitch.raw())));
-            ui.label(theme::label("R:"));
-            ui.label(theme::value(format!("{:+.1}°", self.roll.raw())));
+            DataLabel::new(self.pitch.raw() as f32)
+                .label("P:")
+                .unit("°")
+                .show(ui);
+            DataLabel::new(self.roll.raw() as f32)
+                .label("R:")
+                .unit("°")
+                .show(ui);
         });
     }
 

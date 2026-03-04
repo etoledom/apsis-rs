@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::theme;
+use crate::{theme, widgets::components::status_box::StatusBox};
 
 pub struct AlertsPanel {
     pub battery_pct: f64,
@@ -19,33 +19,9 @@ impl AlertsPanel {
                 ("⚠ LOW BATTERY", theme::YELLOW)
             };
 
-            let bg = egui::Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 20);
-            egui::Frame {
-                fill: bg,
-                stroke: egui::Stroke::new(1.0, color),
-                corner_radius: egui::CornerRadius::same(3),
-                inner_margin: egui::Margin {
-                    left: 6,
-                    right: 6,
-                    top: 3,
-                    bottom: 3,
-                },
-                ..Default::default()
-            }
-            .show(ui, |ui| {
-                ui.set_min_width(ui.available_width());
-                ui.label(
-                    egui::RichText::new(text)
-                        .font(theme::label_font())
-                        .color(color),
-                );
-            });
+            StatusBox::new(text, color).full_width().show(ui);
         } else {
-            ui.label(
-                egui::RichText::new("● ALL SYSTEMS NOMINAL")
-                    .font(theme::label_font())
-                    .color(theme::GREEN),
-            );
+            ui.label(theme::label("● ALL SYSTEMS NOMINAL").color(theme::GREEN));
         }
     }
 }

@@ -31,7 +31,7 @@ impl AltitudeController {
         let climb_target = self
             .altitude_pid
             .update(error_altitude, dt)
-            .clamp(-4.mps(), 4.mps());
+            .clamping(-4.mps(), 4.mps());
 
         let climb_error = climb_target - velocity;
 

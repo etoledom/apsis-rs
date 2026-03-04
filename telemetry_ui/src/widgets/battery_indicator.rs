@@ -1,6 +1,12 @@
 use eframe::egui;
 
-use crate::theme;
+use crate::{
+    theme,
+    widgets::components::{
+        bar::FillBar,
+        data_label::{DataLabel, DataLabelSize},
+    },
+};
 
 pub struct BatteryIndicator {
     pub battery_pct: f64,
@@ -19,43 +25,27 @@ impl BatteryIndicator {
 
     pub fn show(&self, ui: &mut egui::Ui) {
         let color = self.color();
-        let width = ui.available_width();
 
         ui.label(theme::label("BATTERY"));
         ui.add_space(4.0);
 
         // ── NUMERIC VALUE ──
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
-            ui.label(
-                egui::RichText::new(format!("{:.1}", self.battery_pct))
-                    .font(theme::large_value_font())
-                    .color(color),
-            );
-            ui.label(
-                egui::RichText::new(" %")
-                    .font(theme::value_font())
-                    .color(theme::TEXT_DIM),
-            );
-        });
+        //
+        DataLabel::new(self.battery_pct as f32)
+            .unit("%")
+            .color(color)
+            .size(DataLabelSize::Large)
+            .hide_plus()
+            .show(ui);
 
         ui.add_space(4.0);
 
         // ── BAR ──
         // Fills left to right, color changes with level
-        let bar_height = 4.0;
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(width, bar_height), egui::Sense::hover());
-        let painter = ui.painter_at(rect);
-
-        // Background track
-        painter.rect_filled(rect, 4.0, theme::TRACK);
-
-        // Fill — left to right, fraction of total width
-        let fill_frac = (self.battery_pct / 100.0).clamp(0.0, 1.0) as f32;
-        let fill_rect = egui::Rect::from_min_max(
-            rect.min,
-            egui::pos2(rect.left() + fill_frac * rect.width(), rect.bottom()),
-        );
-        painter.rect_filled(fill_rect, 4.0, color);
+        FillBar::new(self.battery_pct as f32)
+            .set_max(100.0)
+            .set_color(color)
+            .set_height(4.0)
+            .show(ui);
     }
 }

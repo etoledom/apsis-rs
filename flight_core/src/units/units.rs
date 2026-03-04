@@ -108,7 +108,11 @@ impl Velocity {
         Velocity(self.0.abs())
     }
 
-    pub fn clamp(&self, min: Velocity, max: Velocity) -> Self {
+    pub fn clamp(&mut self, min: Velocity, max: Velocity) {
+        self.0 = self.0.clamp(min.into(), max.into());
+    }
+
+    pub fn clamping(&self, min: Velocity, max: Velocity) -> Self {
         Self(self.0.clamp(min.into(), max.into()))
     }
 }

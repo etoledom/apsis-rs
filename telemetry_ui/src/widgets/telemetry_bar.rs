@@ -1,4 +1,7 @@
-use crate::theme;
+use crate::{
+    theme,
+    widgets::components::{data_label::DataLabel, status_box::StatusBox},
+};
 use eframe::egui;
 use flight_core::state::State;
 
@@ -21,91 +24,81 @@ impl<'a> TelemetryBar<'a> {
                 };
 
                 ui.horizontal(|ui| {
-                    // Remove spacing between adjacent labels so dim labels
-                    // and white values sit flush against each other
-                    ui.spacing_mut().item_spacing.x = 0.0;
-
                     // ── LEFT: status indicator ──
-                    ui.label(
-                        egui::RichText::new("● ACTIVE  ")
-                            .font(theme::label_font())
-                            .color(theme::GREEN),
-                    );
+                    //
+                    StatusBox::new("● ACTIVE", theme::GREEN).show(ui);
 
                     ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
 
                     // ── POSITION ──
-                    ui.label(theme::label("POS  "));
-                    ui.label(theme::label("N:"));
-                    ui.label(theme::value(format!("{:.2}", state.position_ned.north().0)));
-                    ui.label(theme::label("  E:"));
-                    ui.label(theme::value(format!("{:.2}", state.position_ned.east().0)));
-                    ui.label(theme::label("  D:"));
-                    ui.label(theme::value(format!("{:.2}", state.position_ned.down().0)));
+                    //
+                    ui.label(theme::label("POS "));
+                    DataLabel::new(state.position_ned.north().0 as f32)
+                        .label("N:")
+                        .show(ui);
+                    DataLabel::new(state.position_ned.east().0 as f32)
+                        .label("E:")
+                        .show(ui);
+                    DataLabel::new(state.position_ned.down().0 as f32)
+                        .label("D:")
+                        .show(ui);
 
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
                     ui.separator();
-                    ui.add_space(8.0);
-
-                    let display_down_speed = if state.velocity_ned.down().0.abs() < 0.01 {
-                        0.0
-                    } else {
-                        state.velocity_ned.down().0
-                    };
+                    ui.add_space(4.0);
 
                     // ── VELOCITY ──
-                    ui.label(theme::label("VEL  "));
-                    ui.label(theme::label("N:"));
-                    ui.label(theme::value(format!("{:.2}", state.velocity_ned.north().0)));
-                    ui.label(theme::label("  E:"));
-                    ui.label(theme::value(format!("{:.2}", state.velocity_ned.east().0)));
-                    ui.label(theme::label("  D:"));
-                    ui.label(theme::value(format!("{:.2}", display_down_speed)));
+                    //
+                    ui.label(theme::label("VEL "));
 
-                    ui.add_space(8.0);
+                    DataLabel::new(state.velocity_ned.north().0 as f32)
+                        .label("N:")
+                        .show(ui);
+                    DataLabel::new(state.velocity_ned.east().0 as f32)
+                        .label("E:")
+                        .show(ui);
+                    DataLabel::new(state.velocity_ned.down().0 as f32)
+                        .label("D:")
+                        .show(ui);
+
+                    ui.add_space(4.0);
                     ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
 
                     // ── ATTITUDE ──
-                    ui.label(theme::label("ATT  "));
-                    ui.label(theme::label("P:"));
-                    ui.label(theme::value(format!(
-                        "{:.1}°",
-                        state.attitude.pitch().to_degrees().raw()
-                    )));
-                    ui.label(theme::label("  R:"));
-                    ui.label(theme::value(format!(
-                        "{:.1}°",
-                        state.attitude.roll().to_degrees().raw()
-                    )));
-                    ui.label(theme::label("  Y:"));
-                    ui.label(theme::value(format!(
-                        "{:.1}°",
-                        state.attitude.yaw_normalized().raw()
-                    )));
+                    //
+                    ui.label(theme::label("ATT "));
 
-                    ui.add_space(8.0);
+                    DataLabel::new(state.attitude.pitch().to_degrees().raw_f32())
+                        .label("P:")
+                        .show(ui);
+                    DataLabel::new(state.attitude.roll().to_degrees().raw_f32())
+                        .label("R:")
+                        .show(ui);
+                    DataLabel::new(state.attitude.yaw().to_degrees().raw_f32())
+                        .label("Y:")
+                        .show(ui);
+
+                    ui.add_space(4.0);
                     ui.separator();
-                    ui.add_space(8.0);
+                    ui.add_space(4.0);
 
                     // ── INPUTS ──
-                    ui.label(theme::label("THR:"));
-                    ui.label(theme::value(format!(
-                        "{:.0}%",
-                        state.last_inputs.throttle.get() * 100.0
-                    )));
-                    ui.label(theme::label("  P:"));
-                    ui.label(theme::value(format!(
-                        "{:.2}",
-                        state.last_inputs.pitch.get()
-                    )));
-                    ui.label(theme::label("  R:"));
-                    ui.label(theme::value(format!("{:.2}", state.last_inputs.roll.get())));
+                    //
+                    DataLabel::new(state.last_inputs.throttle.get() as f32)
+                        .label("THR:")
+                        .show(ui);
+                    DataLabel::new(state.last_inputs.pitch.get() as f32)
+                        .label("P:")
+                        .show(ui);
+                    DataLabel::new(state.last_inputs.roll.get() as f32)
+                        .label("R:")
+                        .show(ui);
 
                     // ── RIGHT: version ──
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(theme::label("flight_core v0.1.0"));
+                        ui.label(theme::label("v0.1.0"));
                     });
                 });
             });

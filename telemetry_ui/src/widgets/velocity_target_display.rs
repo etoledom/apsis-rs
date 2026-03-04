@@ -1,6 +1,10 @@
-use eframe::egui::{self, pos2};
+use eframe::egui::{self, vec2};
 
-use crate::{pilot_control::controller::Target, theme};
+use crate::{
+    pilot_control::controller::Target,
+    theme,
+    widgets::components::{bar::CenterBar, data_label::DataLabel},
+};
 
 pub struct VelocityTargetDisplay {
     pub target: Target,
@@ -10,81 +14,53 @@ impl VelocityTargetDisplay {
     pub fn show(&self, ui: &mut egui::Ui) {
         let forward = self.target.forward.0 as f32;
         let right = self.target.right.0 as f32;
+        let yaw = self.target.yaw_rate.raw() as f32;
+
         ui.set_min_width(ui.available_width());
 
-        ui.label(theme::label("VELOCITY TARGET"));
+        ui.label(theme::label("PILOT INPUT"));
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x = 0.0;
-            ui.label(theme::label("N:"));
-            ui.label(theme::value(format!("{:+.1}", forward)));
-            ui.label(theme::label("  E:"));
-            ui.label(theme::value(format!("{:+.1}", right)));
-            ui.label(theme::label("  m/s"));
+            DataLabel::new(forward).label("F").show(ui);
+            DataLabel::new(right).unit("m/s").label("R").show(ui);
+            ui.separator();
+            DataLabel::new(yaw).unit("rad/s").label("Y").show(ui);
         });
 
-        // Visual bars so the pilot can see targets at a glance
-        // without reading numbers — same style as velocity widget
+        // Visual bars
+        //
         let max = 7.0_f32;
         let width = ui.available_width();
         let bar_height = 6.0;
 
-        // North bar
+        // Forward bar
         ui.add_space(3.0);
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(width, bar_height), egui::Sense::hover());
-        let painter = ui.painter_at(rect);
-        painter.rect_filled(rect, 3.0, theme::TRACK);
-        let center_x = rect.center().x;
-        let fill = (forward.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
-        let fill_rect = if forward >= 0.0 {
-            egui::Rect::from_min_max(
-                pos2(center_x, rect.top()),
-                pos2(center_x + fill, rect.bottom()),
-            )
-        } else {
-            egui::Rect::from_min_max(
-                pos2(center_x - fill, rect.top()),
-                pos2(center_x, rect.bottom()),
-            )
-        };
-        painter.rect_filled(fill_rect, 3.0, theme::ACCENT);
-        painter.line_segment(
-            [
-                egui::pos2(center_x, rect.top()),
-                egui::pos2(center_x, rect.bottom()),
-            ],
-            egui::Stroke::new(1.0, theme::TEXT_DIM),
-        );
 
-        // East bar
-        ui.add_space(2.0);
-        let (rect, _) = ui.allocate_exact_size(egui::vec2(width, bar_height), egui::Sense::hover());
-        let painter = ui.painter_at(rect);
-        painter.rect_filled(rect, 3.0, theme::TRACK);
-        let fill = (right.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
-        let fill_rect = if right >= 0.0 {
-            egui::Rect::from_min_max(
-                pos2(center_x, rect.top()),
-                pos2(center_x + fill, rect.bottom()),
-            )
-        } else {
-            egui::Rect::from_min_max(
-                pos2(center_x - fill, rect.top()),
-                pos2(center_x, rect.bottom()),
-            )
-        };
-        painter.rect_filled(fill_rect, 3.0, theme::ORANGE);
-        painter.line_segment(
-            [
-                egui::pos2(center_x, rect.top()),
-                egui::pos2(center_x, rect.bottom()),
-            ],
-            egui::Stroke::new(1.0, theme::TEXT_DIM),
-        );
+        ui.allocate_ui(vec2(width, bar_height * 3.0), |ui| {
+            ui.vertical(|ui| {
+                CenterBar::new(forward)
+                    .set_max(max)
+                    .set_height(bar_height)
+                    .show(ui);
+                CenterBar::new(right)
+                    .set_max(max)
+                    .set_height(bar_height)
+                    .set_color(theme::ORANGE)
+                    .show(ui);
+                CenterBar::new(yaw)
+                    .set_max(2.0)
+                    .set_height(bar_height)
+                    .set_color(theme::GREEN)
+                    .show(ui);
+            })
+        });
 
         // Key hints
         ui.add_space(4.0);
-        ui.label(theme::label("W/S: north  A/D: east  R: reset"));
+        ui.label(theme::label("W/S: forward/backward"));
+        ui.label(theme::label("A/D: east/west"));
+        ui.label(theme::label("<-/-> : Yaw rotation"));
+        ui.label(theme::label("R: Reset"));
     }
 }

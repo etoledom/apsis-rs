@@ -1,7 +1,10 @@
 use eframe::egui;
 use flight_core::units::Meters;
 
-use crate::theme::{self, TEXT, TEXT_DIM};
+use crate::{
+    theme::{self},
+    widgets::components::data_label::{DataLabel, DataLabelSize},
+};
 
 pub struct DistanceFromHome {
     pub north: Meters,
@@ -34,55 +37,39 @@ impl DistanceFromHome {
         ui.set_min_width(width);
 
         // ── SECTION LABEL ──
-        ui.label(
-            egui::RichText::new("DISTANCE FROM HOME")
-                .monospace()
-                .small()
-                .color(theme::TEXT_DIM),
-        );
+        ui.label(theme::label("DISTANCE FROM HOME"));
 
         ui.add_space(4.0);
 
         // ── MAIN READOUT ──
-        // Distance is the hero value — large and yellow (warning color,
-        // since distance from home is something the pilot should always
-        // be aware of). Direction sits beside it as supporting info.
+        //
         ui.horizontal(|ui| {
-            ui.label(
-                egui::RichText::new(format!("{:.0}", dist))
-                    .monospace()
-                    .size(28.0)
-                    .strong()
-                    .color(theme::YELLOW),
-            );
-            ui.label(
-                egui::RichText::new(" m")
-                    .monospace()
-                    .size(12.0)
-                    .color(TEXT_DIM),
-            );
+            DataLabel::new(dist)
+                .unit("m")
+                .color(theme::YELLOW)
+                .size(DataLabelSize::XLarge)
+                .hide_plus()
+                .show(ui);
 
             // Only show direction if far enough from home to be meaningful.
             // Below ~1m the bearing is noise from floating point.
             if dist > 1.0 {
                 ui.add_space(6.0);
-                ui.label(
-                    egui::RichText::new(self.cardinal_direction())
-                        .monospace()
-                        .size(16.0)
-                        .color(TEXT),
-                );
+                ui.label(theme::large_value(self.cardinal_direction()));
             }
         });
 
         // ── RAW NED COORDS ──
-        // Small debug readout below for precise positioning.
-        // Useful during development and for operators who want exact values.
-        ui.label(
-            egui::RichText::new(format!("N {:.1}  ·  E {:.1}", self.north, self.east))
-                .monospace()
-                .small()
-                .color(TEXT_DIM),
-        );
+        //
+        ui.horizontal(|ui| {
+            DataLabel::new(self.north.raw() as f32)
+                .unit("m")
+                .label("N")
+                .show(ui);
+            DataLabel::new(self.east.raw() as f32)
+                .unit("m")
+                .label("E")
+                .show(ui);
+        });
     }
 }

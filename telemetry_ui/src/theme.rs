@@ -35,8 +35,16 @@ pub fn value_font() -> egui::FontId {
     egui::FontId::monospace(10.0)
 }
 
+pub fn x_large_value_font() -> egui::FontId {
+    egui::FontId::monospace(22.0)
+}
+
 pub fn large_value_font() -> egui::FontId {
     egui::FontId::monospace(18.0)
+}
+
+pub fn medium_value_font() -> egui::FontId {
+    egui::FontId::monospace(14.0)
 }
 
 pub fn small_label_font() -> egui::FontId {

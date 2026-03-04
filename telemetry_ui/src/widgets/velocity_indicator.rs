@@ -1,7 +1,13 @@
-use eframe::egui;
+use eframe::egui::{self, vec2};
 use flight_core::units::Velocity;
 
-use crate::theme::*;
+use crate::{
+    theme::{self, *},
+    widgets::components::{
+        bar::{CenterBar, FillBar},
+        data_label::{DataLabel, DataLabelSize},
+    },
+};
 
 pub struct VelocityIndicator {
     pub vel_north: Velocity,
@@ -29,78 +35,16 @@ impl VelocityIndicator {
         ][index]
     }
 
-    fn draw_bar_centered(
-        painter: &egui::Painter,
-        rect: egui::Rect,
-        value: f32, // signed, m/s
-        max: f32,   // positive max scale
-        color: egui::Color32,
-    ) {
-        // Dark background track pill
-        painter.rect_filled(rect, 4.0, TRACK);
-
-        // Center x = zero point. Left = negative, right = positive.
-        let center_x = rect.center().x;
-
-        // Normalize to 0..1 within one half, clamp to bounds
-        let fill_frac = (value.abs() / max).clamp(0.0, 1.0);
-        let fill_width = fill_frac * (rect.width() / 2.0);
-
-        // Fill left or right of center depending on sign
-        let fill_rect = if value >= 0.0 {
-            egui::Rect::from_min_max(
-                egui::pos2(center_x, rect.top()),
-                egui::pos2(center_x + fill_width, rect.bottom()),
-            )
-        } else {
-            egui::Rect::from_min_max(
-                egui::pos2(center_x - fill_width, rect.top()),
-                egui::pos2(center_x, rect.bottom()),
-            )
-        };
-
-        painter.rect_filled(fill_rect, 4.0, color);
-
-        // Center zero tick
-        painter.line_segment(
-            [
-                egui::pos2(center_x, rect.top()),
-                egui::pos2(center_x, rect.bottom()),
-            ],
-            egui::Stroke::new(1.0, egui::Color32::GRAY),
-        );
-    }
-
-    fn draw_bar_left(
-        painter: &egui::Painter,
-        rect: egui::Rect,
-        value: f32, // positive scalar
-        max: f32,
-        color: egui::Color32,
-    ) {
-        // Dark background track
-        painter.rect_filled(rect, 4.0, TRACK);
-
-        // Fill from left edge, fraction of total width
-        let fill_frac = (value / max).clamp(0.0, 1.0);
-        let fill_rect = egui::Rect::from_min_max(
-            rect.min,
-            egui::pos2(rect.left() + fill_frac * rect.width(), rect.bottom()),
-        );
-
-        painter.rect_filled(fill_rect, 4.0, color);
-    }
-
     pub fn show(&self, ui: &mut egui::Ui) {
         let (vel_north, vel_east) = (self.vel_north.0 as f32, self.vel_east.0 as f32);
         let max_v = 10.0_f32;
         let bar_height = 8.0;
-        let gnd_color = ACCENT; // cyan
-        let n_color = ACCENT; // cyan
-        let e_color = ORANGE; // orange
+        let gnd_color = ACCENT;
+        let north_color = ACCENT;
+        let east_color = ORANGE;
 
-        let gnd = self.ground_speed();
-        let dir = self.cardinal_direction();
+        let gnd_speed = self.ground_speed();
+        let cardinal_dir = self.cardinal_direction();
 
         // ── SECTION LABEL ──
         ui.label(
@@ -113,39 +57,30 @@ impl VelocityIndicator {
         ui.add_space(4.0);
 
         // ── GROUND SPEED ROW ──
-        // Large value + cardinal direction on one line
+        //
         ui.horizontal(|ui| {
+            DataLabel::new(gnd_speed)
+                .unit("m/s")
+                .color(gnd_color)
+                .label("GND")
+                .size(DataLabelSize::Medium)
+                .show(ui);
+
             ui.label(
-                egui::RichText::new("GND")
-                    .monospace()
-                    .small()
-                    .color(egui::Color32::DARK_GRAY),
-            );
-            ui.label(
-                egui::RichText::new(format!("{:.1} m/s", gnd))
-                    .monospace()
-                    .size(18.0)
-                    .color(gnd_color),
-            );
-            ui.label(
-                egui::RichText::new(dir)
-                    .monospace()
-                    .size(14.0)
-                    .color(egui::Color32::WHITE),
+                egui::RichText::new(cardinal_dir)
+                    .font(theme::medium_value_font())
+                    .color(theme::TEXT),
             );
         });
 
-        // Ground speed bar — full available width
-        let (gnd_rect, _) = ui.allocate_exact_size(
-            egui::vec2(ui.available_width(), bar_height),
-            egui::Sense::hover(),
-        );
-        Self::draw_bar_left(&ui.painter_at(gnd_rect), gnd_rect, gnd, max_v, gnd_color);
+        // Ground speed bar —
+        //
+        FillBar::new(gnd_speed).set_max(max_v).show(ui);
 
         ui.add_space(18.0);
 
-        // ── N and E LABELS side by side ──
-        // Each takes exactly half the available width
+        // ── N and E ──
+        //
         let total_width = ui.available_width();
 
         let half = (total_width).max(0.0) / 2.0; // 4px gap between the two
@@ -154,52 +89,40 @@ impl VelocityIndicator {
             ui.vertical(|ui| {
                 // North label
                 ui.allocate_ui(egui::vec2(half, 20.0), |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            egui::RichText::new("N")
-                                .monospace()
-                                .small()
-                                .color(egui::Color32::DARK_GRAY),
-                        );
-                        ui.label(
-                            egui::RichText::new(format!("{:+.1} m/s", vel_north))
-                                .monospace()
-                                .color(n_color),
-                        );
-                    });
+                    DataLabel::new(vel_north)
+                        .unit("m/s")
+                        .color(north_color)
+                        .label("N")
+                        .size(DataLabelSize::Medium)
+                        .show(ui);
                 });
                 ui.add_space(4.0);
 
-                // ── N and E BARS side by side ──
-
-                // North bar — half width, center zero
-                let (n_rect, _) = ui
-                    .allocate_exact_size(egui::vec2(half - 4.0, bar_height), egui::Sense::hover());
-                Self::draw_bar_centered(&ui.painter_at(n_rect), n_rect, vel_north, max_v, n_color);
+                // North bar
+                ui.allocate_ui(vec2(half, bar_height), |ui| {
+                    CenterBar::new(vel_north).set_max(max_v).show(ui);
+                });
             });
 
             ui.vertical(|ui| {
                 // East label
                 ui.allocate_ui(egui::vec2(half, 20.0), |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label(
-                            egui::RichText::new("E")
-                                .monospace()
-                                .small()
-                                .color(egui::Color32::DARK_GRAY),
-                        );
-                        ui.label(
-                            egui::RichText::new(format!("{:+.1} m/s", vel_east))
-                                .monospace()
-                                .color(e_color),
-                        );
-                    });
+                    DataLabel::new(vel_east)
+                        .unit("m/s")
+                        .color(east_color)
+                        .label("E")
+                        .size(DataLabelSize::Medium)
+                        .show(ui);
                 });
                 ui.add_space(4.0);
-                // East bar — half width, center zero
-                let (e_rect, _) = ui
-                    .allocate_exact_size(egui::vec2(half - 4.0, bar_height), egui::Sense::hover());
-                Self::draw_bar_centered(&ui.painter_at(e_rect), e_rect, vel_east, max_v, e_color);
+
+                // East bar
+                ui.allocate_ui(vec2(half, bar_height), |ui| {
+                    CenterBar::new(vel_east)
+                        .set_max(max_v)
+                        .set_color(east_color)
+                        .show(ui);
+                });
             });
         });
     }

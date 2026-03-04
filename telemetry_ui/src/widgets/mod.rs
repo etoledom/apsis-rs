@@ -10,3 +10,5 @@ pub mod velocity_indicator;
 pub mod velocity_target_display;
 pub mod vertical_speed_indicator;
 pub mod yaw_ribbon;
+
+mod components;

@@ -81,14 +81,12 @@ impl VelocityIndicator {
 
         // ── N and E ──
         //
-        let total_width = ui.available_width();
-
-        let half = (total_width).max(0.0) / 2.0; // 4px gap between the two
 
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
+                let width = ui.available_width() / 2.0;
                 // North label
-                ui.allocate_ui(egui::vec2(half, 20.0), |ui| {
+                ui.allocate_ui(egui::vec2(width, 20.0), |ui| {
                     DataLabel::new(vel_north)
                         .unit("m/s")
                         .color(north_color)
@@ -99,14 +97,15 @@ impl VelocityIndicator {
                 ui.add_space(4.0);
 
                 // North bar
-                ui.allocate_ui(vec2(half, bar_height), |ui| {
+                ui.allocate_ui(vec2(width, bar_height), |ui| {
                     CenterBar::new(vel_north).set_max(max_v).show(ui);
                 });
             });
 
             ui.vertical(|ui| {
+                let width = ui.available_width();
                 // East label
-                ui.allocate_ui(egui::vec2(half, 20.0), |ui| {
+                ui.allocate_ui(egui::vec2(width, 20.0), |ui| {
                     DataLabel::new(vel_east)
                         .unit("m/s")
                         .color(east_color)
@@ -117,7 +116,7 @@ impl VelocityIndicator {
                 ui.add_space(4.0);
 
                 // East bar
-                ui.allocate_ui(vec2(half, bar_height), |ui| {
+                ui.allocate_ui(vec2(width, bar_height), |ui| {
                     CenterBar::new(vel_east)
                         .set_max(max_v)
                         .set_color(east_color)

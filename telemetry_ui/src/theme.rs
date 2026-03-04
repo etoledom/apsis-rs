@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32};
+use eframe::egui::{self, Color32, Margin};
 
 // ── Primary palette ──
 pub const ACCENT: Color32 = Color32::from_rgb(0, 212, 255); // cyan — primary data
@@ -22,7 +22,8 @@ pub fn panel_frame() -> egui::Frame {
     egui::Frame::new()
         .fill(PANEL)
         .stroke(egui::Stroke::new(1.0, BORDER))
-        .inner_margin(egui::Margin::same(8))
+        .inner_margin(Margin::same(8))
+        .outer_margin(Margin::same(0))
         .corner_radius(4.0)
 }
 

@@ -108,8 +108,14 @@ impl Velocity {
         Velocity(self.0.abs())
     }
 
-    pub fn clamp(&self, min: f64, max: f64) -> Self {
-        Self(self.0.clamp(min, max))
+    pub fn clamp(&self, min: Velocity, max: Velocity) -> Self {
+        Self(self.0.clamp(min.into(), max.into()))
+    }
+}
+
+impl From<Velocity> for f64 {
+    fn from(value: Velocity) -> Self {
+        value.0
     }
 }
 

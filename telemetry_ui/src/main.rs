@@ -32,20 +32,17 @@ fn main() -> eframe::Result {
             simulator.tick(&inputs, dt);
             state_tx.send(simulator.state.clone()).ok();
 
-            println!(
-                "wx: {:.3}, wy: {:.3}, wz: {:.3}",
-                simulator.state.angular_velocity_body.x(),
-                simulator.state.angular_velocity_body.y(),
-                simulator.state.angular_velocity_body.z()
-            );
-
             // Pilot input
             while let Ok(last_target) = target_rx.try_recv() {
                 let target: Target = last_target;
 
-                controller.set_target_velocity(target.velocity);
+                let world_frame_target = simulator
+                    .state
+                    .attitude
+                    .rotate_body_to_world(target.forward, target.right);
 
-                controller.set_heading_rate_target(target.yaw_rate);
+                controller.set_target_velocity(world_frame_target);
+                controller.set_yaw_rate_target(target.yaw_rate);
             }
 
             std::thread::sleep(Duration::from_millis(10));
@@ -60,6 +57,6 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "Simulator",
         options,
-        Box::new(|cc| Ok(Box::new(SimulatorUI::new(state_rx, target_tx)))),
+        Box::new(|_| Ok(Box::new(SimulatorUI::new(state_rx, target_tx)))),
     )
 }

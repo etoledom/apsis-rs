@@ -17,7 +17,7 @@ impl RateController {
         Self {
             roll_pid: RollRatePID::new(3, 0, 0.05),
             pitch_pid: PitchRatePID::new(3, 0, 0.05),
-            yaw_pid: YawRatePID::new(5, 0, 0.4),
+            yaw_pid: YawRatePID::new(2, 0, 0),
         }
     }
 

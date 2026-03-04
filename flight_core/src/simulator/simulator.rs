@@ -50,18 +50,9 @@ impl<DroneType: Drone> Simulator<DroneType> {
         self.update_attitude(inputs.pitch, inputs.roll, inputs.yaw, delta_t);
         let acceleration = self.net_acceleration(delta_t, inputs);
         self.integrate(acceleration, delta_t);
-        self.update_heading(delta_t, inputs);
         self.update_horizontal_position(self.state.velocity_ned.ground_speed(), delta_t);
         self.update_battery_state(delta_t, inputs);
         self.state.last_inputs = inputs.clone();
-    }
-
-    fn update_heading(&mut self, delta_t: Seconds, inputs: &Inputs) {
-        let new_heading_rate = self.drone.heading_rate(inputs.yaw);
-        let average = (self.state.heading_rate + new_heading_rate) / 2.0;
-        self.state.heading_rate = new_heading_rate;
-
-        self.state.heading = (average * delta_t) + self.state.heading;
     }
 
     fn update_battery_state(&mut self, delta_t: Seconds, inputs: &Inputs) {
@@ -130,16 +121,14 @@ impl<DroneType: Drone> Simulator<DroneType> {
         let roll_acceleration = drone.max_roll_acceleration() * roll.get()
             - drone.roll_damping_coefficient() * self.state.angular_velocity_body.x();
 
-        // Yaw: direct rate control — input maps directly to angular velocity around Z
-        // No acceleration/damping model, just set the rate directly
-        let yaw_rate = drone.heading_rate(yaw).to_angular_velocity();
+        let yaw_acceleration = drone.max_yaw_acceleration() * yaw.get()
+            - drone.yaw_damping_coefficient() * self.state.angular_velocity_body.z();
 
         let angular_acceleration =
-            AngularAcceleration3D::new(roll_acceleration, pitch_acceleration, Default::default());
+            AngularAcceleration3D::new(roll_acceleration, pitch_acceleration, yaw_acceleration);
 
         // 2.
         self.state.angular_velocity_body += angular_acceleration * dt;
-        self.state.angular_velocity_body.set_z(yaw_rate);
 
         // 3.
         let quat_omega = Quaternion::omega(self.state.angular_velocity_body);
@@ -260,7 +249,6 @@ mod tests {
         let hover_throttle = drone.hover_throttle();
 
         let mut simulator = Simulator::new(drone);
-        simulator.state.heading = crate::units::angles::Degrees(0.0); // North
 
         for _ in 0..100 {
             simulator.tick(
@@ -274,7 +262,11 @@ mod tests {
             );
         }
 
-        assert_relative_eq!(simulator.state.heading.0, 44.77, epsilon = 1e-2); // Near 45 degrees as specified.
+        assert_relative_eq!(
+            simulator.state.attitude.yaw().to_degrees().0,
+            87.53,
+            epsilon = 1e-2
+        ); // Near 45 degrees as specified.
     }
 
     #[test]
@@ -282,7 +274,6 @@ mod tests {
         let drone = DefaultDrone {};
 
         let mut simulator = Simulator::new(drone);
-        simulator.state.heading = crate::units::angles::Degrees(0.0); // North
 
         let inputs = Inputs {
             throttle: Throttle::max(),
@@ -533,11 +524,8 @@ mod tests {
     }
 
     #[test]
-    fn yaw_rate_matches_drone_spec() {
-        let drone = DefaultDrone {};
-        let max_rate = drone.max_heading_rate(); // degrees/second
+    fn yaw_acceleration_model() {
         let mut sim = Simulator::new(DefaultDrone {});
-
         let inputs = Inputs {
             throttle: Throttle::clamp(0.5),
             pitch: Pitch::clamp(0.0),
@@ -545,15 +533,16 @@ mod tests {
             yaw: Yaw::clamp(1.0), // full yaw input
         };
 
-        // Tick for 1 second — should rotate by max_heading_rate degrees
-        let steps = 100;
-        let dt = 1.0 / steps as f64;
-        for _ in 0..steps {
-            sim.tick(&inputs, dt.seconds());
+        // Run for 2 seconds
+        for _ in 0..200 {
+            sim.tick(&inputs, 0.01.seconds());
         }
 
-        let expected_yaw = max_rate.0 * 1.0; // degrees after 1 second
-        let actual_yaw = sim.state.attitude.yaw().to_degrees().raw();
-        assert!((actual_yaw - expected_yaw).abs() < 1.0); // within 1 degree
+        // Should have rotated significantly
+        let yaw = sim.state.attitude.yaw().raw();
+        assert!(yaw < 1.0, "expected significant yaw rotation, got {}°", yaw);
+
+        // Angular velocity should be positive (clockwise)
+        assert!(sim.state.angular_velocity_body.z().raw() > 0.0);
     }
 }

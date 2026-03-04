@@ -3,7 +3,7 @@ use crate::{
         drone::{DragCoefficient, Drone},
         types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
     },
-    units::angles::{AngularAcceleration, Degrees, DegreesLiteral, DegreesPerSecond},
+    units::angles::{AngularAcceleration, Degrees, DegreesLiteral},
 };
 
 #[derive(Clone, Copy)]
@@ -26,12 +26,12 @@ impl Drone for DefaultDrone {
         AngularAcceleration::new(1.5)
     }
 
-    fn thrust_to_waight_ratio(&self) -> f64 {
-        2.0
+    fn max_yaw_acceleration(&self) -> AngularAcceleration {
+        AngularAcceleration::new(4.0)
     }
 
-    fn max_heading_rate(&self) -> DegreesPerSecond {
-        DegreesPerSecond(90.0)
+    fn thrust_to_waight_ratio(&self) -> f64 {
+        2.0
     }
 
     fn battery_drain_pct(&self, throttle: Throttle) -> f64 {
@@ -53,5 +53,9 @@ impl Drone for DefaultDrone {
 
     fn roll_damping_coefficient(&self) -> AngularDamping {
         AngularDamping::new(2.0)
+    }
+
+    fn yaw_damping_coefficient(&self) -> AngularDamping {
+        AngularDamping::new(1.0)
     }
 }

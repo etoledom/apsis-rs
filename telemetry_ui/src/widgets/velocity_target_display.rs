@@ -1,16 +1,15 @@
 use eframe::egui::{self, pos2};
-use flight_core::VelocityNED;
 
-use crate::theme;
+use crate::{pilot_control::controller::Target, theme};
 
 pub struct VelocityTargetDisplay {
-    pub velocity: VelocityNED,
+    pub target: Target,
 }
 
 impl VelocityTargetDisplay {
     pub fn show(&self, ui: &mut egui::Ui) {
-        let east = self.velocity.east().0 as f32;
-        let north = self.velocity.north().0 as f32;
+        let forward = self.target.forward.0 as f32;
+        let right = self.target.right.0 as f32;
         ui.set_min_width(ui.available_width());
 
         ui.label(theme::label("VELOCITY TARGET"));
@@ -19,9 +18,9 @@ impl VelocityTargetDisplay {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
             ui.label(theme::label("N:"));
-            ui.label(theme::value(format!("{:+.1}", north)));
+            ui.label(theme::value(format!("{:+.1}", forward)));
             ui.label(theme::label("  E:"));
-            ui.label(theme::value(format!("{:+.1}", east)));
+            ui.label(theme::value(format!("{:+.1}", right)));
             ui.label(theme::label("  m/s"));
         });
 
@@ -37,8 +36,8 @@ impl VelocityTargetDisplay {
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 3.0, theme::TRACK);
         let center_x = rect.center().x;
-        let fill = (north.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
-        let fill_rect = if north >= 0.0 {
+        let fill = (forward.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
+        let fill_rect = if forward >= 0.0 {
             egui::Rect::from_min_max(
                 pos2(center_x, rect.top()),
                 pos2(center_x + fill, rect.bottom()),
@@ -63,8 +62,8 @@ impl VelocityTargetDisplay {
         let (rect, _) = ui.allocate_exact_size(egui::vec2(width, bar_height), egui::Sense::hover());
         let painter = ui.painter_at(rect);
         painter.rect_filled(rect, 3.0, theme::TRACK);
-        let fill = (east.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
-        let fill_rect = if east >= 0.0 {
+        let fill = (right.abs() / max).clamp(0.0, 1.0) * (width / 2.0);
+        let fill_rect = if right >= 0.0 {
             egui::Rect::from_min_max(
                 pos2(center_x, rect.top()),
                 pos2(center_x + fill, rect.bottom()),

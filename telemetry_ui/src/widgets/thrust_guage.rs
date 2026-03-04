@@ -12,7 +12,7 @@ pub struct ThrustGauge {
 impl ThrustGauge {
     pub fn show(&self, ui: &mut Ui) {
         let thrust = self.thrust.get() as f32;
-        let width = ui.available_width() - 30.0;
+        let width = ui.available_width();
         let height = 100.0;
 
         // ── SECTION LABEL ──
@@ -107,41 +107,6 @@ impl ThrustGauge {
         for w in fill_points.windows(2) {
             painter.line_segment([w[0], w[1]], egui::Stroke::new(10.0, color));
         }
-
-        /*
-        // ── HOVER MARKER ──
-        // A small tick mark at the 50% position indicating the hover throttle.
-        // In a multirotor, ~50% throttle is roughly where the drone hovers,
-        // so this gives the pilot a reference point.
-        let hover_angle = start_angle + 0.5 * (end_angle - start_angle);
-        let hover_pos = egui::pos2(
-            center.x + radius * hover_angle.cos(),
-            center.y - radius - hover_angle.sin(),
-        );
-        // Draw a short vertical line above the arc at the hover point
-        painter.line_segment(
-            [hover_pos, egui::pos2(hover_pos.x, hover_pos.y - 12.0)],
-            egui::Stroke::new(1.0, egui::Color32::YELLOW),
-        );
-        */
-
-        /* Remove the needle for now.
-        // ── NEEDLE ──
-        // A line from the center of the arc to the current thrust position
-        // on the arc, like a clock hand. Gives a precise visual reading.
-        let needle_angle = start_angle + thrust * (end_angle - start_angle);
-        // Stop the needle slightly short of the arc edge so it doesn't overlap
-        let needle_end = egui::pos2(
-            center.x + (radius - 8.0) * needle_angle.cos(),
-            center.y - (radius - 8.0) * needle_angle.sin(),
-        );
-        painter.line_segment(
-            [center, needle_end],
-            egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 212, 255)),
-        );
-        // Small filled circle at the pivot point of the needle
-        painter.circle_filled(center, 4.0, egui::Color32::from_rgb(0, 212, 255));
-        */
 
         // ── PERCENTAGE LABEL ──
         // Numeric readout of current thrust inside the arc.

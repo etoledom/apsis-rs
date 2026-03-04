@@ -1,15 +1,16 @@
 use std::collections::HashSet;
 
 use eframe::egui::{self, Key};
-use flight_core::{
-    VelocityNED,
-    units::{VelocityLiteral, angles::DegreesPerSecond},
+use flight_core::units::{
+    Velocity, VelocityLiteral,
+    angles::{AngularVelocity, DegreesPerSecond},
 };
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub struct Target {
-    pub velocity: VelocityNED,
-    pub yaw_rate: DegreesPerSecond,
+    pub forward: Velocity,
+    pub right: Velocity,
+    pub yaw_rate: AngularVelocity,
 }
 
 pub trait Controller {
@@ -34,28 +35,30 @@ impl<'a> Controller for KeyboardController<'a> {
 
         self.ctx.input(|input| {
             if input.key_down(Key::W) {
-                updated_target.velocity.add_north(step);
+                updated_target.forward += step;
             }
             if input.key_down(Key::S) {
-                updated_target.velocity.add_north(-step);
+                updated_target.forward -= step;
             }
             if input.key_down(Key::D) {
-                updated_target.velocity.add_east(step);
+                updated_target.right += step;
             }
             if input.key_down(Key::A) {
-                updated_target.velocity.add_east(-step);
+                updated_target.right -= step;
             }
-            if input.key_down(Key::ArrowUp) {
-                updated_target.velocity.add_down(-step);
-            }
-            if input.key_down(Key::ArrowDown) {
-                updated_target.velocity.add_down(step);
-            }
+
+            // if input.key_down(Key::ArrowUp) {
+            //     updated_target.velocity.add_down(-step);
+            // }
+            // if input.key_down(Key::ArrowDown) {
+            //     updated_target.velocity.add_down(step);
+            // }
+
             if input.key_down(Key::ArrowLeft) {
-                updated_target.yaw_rate = DegreesPerSecond(-90.0);
+                updated_target.yaw_rate = DegreesPerSecond(-90.0).to_angular_velocity();
             }
             if input.key_down(Key::ArrowRight) {
-                updated_target.yaw_rate = DegreesPerSecond(90.0);
+                updated_target.yaw_rate = DegreesPerSecond(90.0).to_angular_velocity();
             }
             if input
                 .keys_down
@@ -63,16 +66,16 @@ impl<'a> Controller for KeyboardController<'a> {
                 .count()
                 == 0
             {
-                updated_target.yaw_rate = DegreesPerSecond(0.0);
+                updated_target.yaw_rate = Default::default();
             }
+
             if input.key_down(Key::R) {
                 updated_target = Default::default();
             }
         });
 
-        updated_target.velocity.clamp_north(-max_vel, max_vel);
-        updated_target.velocity.clamp_east(-max_vel, max_vel);
-        updated_target.velocity.clamp_down(-max_vel, max_vel);
+        updated_target.forward.clamp(-max_vel, max_vel);
+        updated_target.right.clamp(-max_vel, max_vel);
 
         return updated_target;
     }

@@ -22,7 +22,7 @@ impl VelocityNedController {
     }
     pub fn update(&mut self, current: VelocityNED, dt: Seconds) -> WorldFrameAcceleration {
         let error = self.target - current;
-        // println!("v_error north: {}", error.north().0);
+
         WorldFrameAcceleration::new(
             Acceleration(
                 self.north_pid

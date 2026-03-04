@@ -15,6 +15,11 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
         ctx: &Context<Vehicle>,
         _: Seconds,
     ) -> WorldFrameAcceleration {
+        if ctx.state.battery_pct <= 0.0 {
+            // No thrust without battery.
+            return WorldFrameAcceleration::zero();
+        }
+
         let inputs = ctx.inputs;
 
         let base_acceleration = inputs.throttle.get() * ctx.vehicle.max_thrust_acceleration();

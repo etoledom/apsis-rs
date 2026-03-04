@@ -52,13 +52,13 @@ impl VelocityNED {
         self.0.y += added_value;
     }
     pub fn clamp_down(&mut self, min: Velocity, max: Velocity) {
-        self.0.z = self.0.z.clamp(min.0, max.0);
+        self.0.z = self.0.z.clamp(min, max);
     }
     pub fn clamp_north(&mut self, min: Velocity, max: Velocity) {
-        self.0.x = self.0.x.clamp(min.0, max.0);
+        self.0.x = self.0.x.clamp(min, max);
     }
     pub fn clamp_east(&mut self, min: Velocity, max: Velocity) {
-        self.0.y = self.0.y.clamp(min.0, max.0);
+        self.0.y = self.0.y.clamp(min, max);
     }
     pub fn ground_speed(&self) -> WorldFrameGroundVelocity {
         WorldFrameGroundVelocity::new(self.north(), self.east())

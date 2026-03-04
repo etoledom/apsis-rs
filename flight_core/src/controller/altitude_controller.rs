@@ -1,10 +1,10 @@
 use crate::{
-    controller::{
-        gain::LinearGain,
-        pid::{AltitudePID, ClimbPID},
-    },
+    controller::pid::{AltitudePID, ClimbPID},
     simulator::{state::State, types::throttle::Throttle},
-    units::units::{Meters, Seconds},
+    units::{
+        VelocityLiteral,
+        units::{Meters, Seconds},
+    },
 };
 
 pub struct AltitudeController {
@@ -17,16 +17,8 @@ impl AltitudeController {
     pub fn new(altitude_target: Meters) -> Self {
         Self {
             altitude_target,
-            altitude_pid: AltitudePID::new(
-                LinearGain::new(1.0),
-                LinearGain::zero(),
-                LinearGain::zero(),
-            ),
-            climb_pid: ClimbPID::new(
-                LinearGain::new(0.4),
-                LinearGain::new(0.6),
-                LinearGain::zero(),
-            ),
+            altitude_pid: AltitudePID::new(1, 0, 0),
+            climb_pid: ClimbPID::new(0.4, 0.6, 0),
         }
     }
 
@@ -39,7 +31,7 @@ impl AltitudeController {
         let climb_target = self
             .altitude_pid
             .update(error_altitude, dt)
-            .clamp(-4.0, 4.0);
+            .clamp(-4.mps(), 4.mps());
 
         let climb_error = climb_target - velocity;
 

@@ -4,8 +4,12 @@ use std::{
 };
 
 use crate::{
+    VelocityNED,
     simulator::types::angular_velocity_3d::AngularVelocity3D,
-    units::angles::{Degrees, Radians},
+    units::{
+        Velocity, VelocityLiteral,
+        angles::{Degrees, Radians},
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -57,6 +61,18 @@ impl Quaternion {
             y: -self.y,
             z: -self.z,
         }
+    }
+
+    pub fn rotate_body_to_world(&self, forward: Velocity, right: Velocity) -> VelocityNED {
+        // q * v * q*
+        let q_v = Quaternion {
+            w: 0.0,
+            x: forward.into(),
+            y: right.into(),
+            z: 0.0,
+        };
+        let rotated = *self * q_v * self.conjugate();
+        VelocityNED::new(rotated.x.mps(), rotated.y.mps(), rotated.z.mps())
     }
 
     /// Returns pitch in radians. Positive nose-down.

@@ -1,4 +1,5 @@
 use crate::{impl_debug_unit, units::units::Seconds};
+use std::f64::consts::PI;
 use std::fmt;
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
@@ -21,6 +22,14 @@ impl Degrees {
 
     pub fn sin(self) -> f64 {
         self.0.sin()
+    }
+
+    pub fn raw(&self) -> f64 {
+        self.0
+    }
+
+    pub fn raw_f32(&self) -> f32 {
+        self.0 as f32
     }
 }
 
@@ -46,6 +55,12 @@ impl DegreesLiteral for i32 {
     }
 }
 
+impl AddAssign for Degrees {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0 += rhs.0;
+    }
+}
+
 // =====
 // DegreesPerSecond
 // =====
@@ -57,6 +72,12 @@ pub struct DegreesPerSecond(pub f64); // deg/s
 impl DegreesPerSecond {
     fn zero() -> Self {
         Self(0.0)
+    }
+    pub fn to_angular_velocity(self) -> AngularVelocity {
+        AngularVelocity(self.0 * (PI / 180.0))
+    }
+    pub fn clamp(&mut self, min: DegreesPerSecond, max: DegreesPerSecond) {
+        self.0 = self.0.clamp(min.0, max.0);
     }
 }
 
@@ -89,6 +110,20 @@ impl Radians {
 
     pub fn to_degrees(self) -> Degrees {
         Degrees(self.0.to_degrees())
+    }
+
+    pub fn raw(&self) -> f64 {
+        self.0
+    }
+
+    pub fn raw_f32(&self) -> f32 {
+        self.raw() as f32
+    }
+}
+
+impl From<Radians> for f32 {
+    fn from(value: Radians) -> Self {
+        value.0 as f32
     }
 }
 

@@ -15,9 +15,9 @@ pub struct RateController {
 impl RateController {
     pub fn new() -> Self {
         Self {
-            roll_pid: RollRatePID::new(0.8, 0, 0.01),
-            pitch_pid: PitchRatePID::new(0.8, 0, 0.01),
-            yaw_pid: YawRatePID::new(0.1, 0, 0),
+            roll_pid: RollRatePID::new(3, 0, 0.05),
+            pitch_pid: PitchRatePID::new(3, 0, 0.05),
+            yaw_pid: YawRatePID::new(5, 0, 0.4),
         }
     }
 

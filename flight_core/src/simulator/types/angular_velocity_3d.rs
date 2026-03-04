@@ -35,6 +35,9 @@ impl AngularVelocity3D {
     pub fn set_y(&mut self, y: AngularVelocity) {
         self.0.y = y;
     }
+    pub fn set_z(&mut self, z: AngularVelocity) {
+        self.0.z = z;
+    }
 }
 
 impl AddAssign for AngularVelocity3D {

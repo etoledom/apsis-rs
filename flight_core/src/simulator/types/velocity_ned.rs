@@ -8,7 +8,7 @@ use crate::{
 };
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct VelocityNED(Vec3<Velocity>);
 
 impl VelocityNED {
@@ -35,6 +35,30 @@ impl VelocityNED {
 
     pub fn update_down(&mut self, new_value: Velocity) {
         self.0.z = new_value;
+    }
+    pub fn update_north(&mut self, new_value: Velocity) {
+        self.0.x = new_value;
+    }
+    pub fn update_east(&mut self, new_value: Velocity) {
+        self.0.y = new_value;
+    }
+    pub fn add_down(&mut self, added_value: Velocity) {
+        self.0.z += added_value;
+    }
+    pub fn add_north(&mut self, added_value: Velocity) {
+        self.0.x += added_value;
+    }
+    pub fn add_east(&mut self, added_value: Velocity) {
+        self.0.y += added_value;
+    }
+    pub fn clamp_down(&mut self, min: Velocity, max: Velocity) {
+        self.0.z = self.0.z.clamp(min.0, max.0);
+    }
+    pub fn clamp_north(&mut self, min: Velocity, max: Velocity) {
+        self.0.x = self.0.x.clamp(min.0, max.0);
+    }
+    pub fn clamp_east(&mut self, min: Velocity, max: Velocity) {
+        self.0.y = self.0.y.clamp(min.0, max.0);
     }
     pub fn ground_speed(&self) -> WorldFrameGroundVelocity {
         WorldFrameGroundVelocity::new(self.north(), self.east())

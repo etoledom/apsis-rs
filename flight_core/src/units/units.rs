@@ -1,7 +1,7 @@
 use std::{
     cmp::Ordering,
     fmt,
-    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign},
 };
 
 use crate::units::{
@@ -57,6 +57,9 @@ impl Meters {
     }
     pub fn max(self, max_value: Meters) -> Meters {
         Meters(self.0.max(max_value.0))
+    }
+    pub fn raw(&self) -> f64 {
+        self.0
     }
 }
 
@@ -129,6 +132,14 @@ impl VelocityLiteral for f64 {
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default)]
 pub struct VelocitySquare(pub f64); // m2/s2 or (m/s)2
+
+impl Add for VelocitySquare {
+    type Output = VelocitySquare;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        VelocitySquare(self.0 + rhs.0)
+    }
+}
 
 impl Sub<Seconds> for Seconds {
     type Output = Seconds;
@@ -288,6 +299,12 @@ impl Div<f64> for Meters {
 impl AddAssign for Velocity {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0
+    }
+}
+
+impl SubAssign for Velocity {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0
     }
 }
 

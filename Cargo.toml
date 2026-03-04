@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "flight_core",
-    # "flight_ui",
+    "telemetry_ui",
     # "flight_mission",
 ]
 resolver = "2"

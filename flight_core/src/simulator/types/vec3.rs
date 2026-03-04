@@ -70,6 +70,12 @@ impl<T: Mul<f64, Output = T>> Mul<f64> for Vec3<T> {
     }
 }
 
+impl<T: PartialEq> PartialEq for Vec3<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y && self.z == other.z
+    }
+}
+
 // Dot multiplication
 
 pub trait DotMult {

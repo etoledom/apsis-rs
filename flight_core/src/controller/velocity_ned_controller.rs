@@ -15,8 +15,8 @@ impl VelocityNedController {
     pub fn new(target: VelocityNED) -> Self {
         Self {
             target,
-            north_pid: VelocityNorthPID::new(4, 0.4, 0.05),
-            east_pid: VelocityEastPID::new(4, 0.4, 0.05),
+            north_pid: VelocityNorthPID::new(5.5, 0.8, 0.2),
+            east_pid: VelocityEastPID::new(5.5, 0.8, 0.2),
             down_pid: VelocityDownPID::new(0.8, 0, 0.1),
         }
     }
@@ -24,7 +24,12 @@ impl VelocityNedController {
         let error = self.target - current;
         // println!("v_error north: {}", error.north().0);
         WorldFrameAcceleration::new(
-            Acceleration(self.north_pid.update(error.north(), dt).0.clamp(-6.0, 6.0)),
+            Acceleration(
+                self.north_pid
+                    .update(error.north(), dt)
+                    .0
+                    .clamp(-10.0, 10.0),
+            ),
             self.east_pid.update(error.east(), dt),
             self.down_pid.update(error.down(), dt),
         )

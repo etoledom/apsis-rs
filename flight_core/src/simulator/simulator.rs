@@ -1,4 +1,5 @@
 use crate::{
+    Yaw,
     simulator::{
         drone::Drone,
         force_model::{
@@ -46,12 +47,13 @@ impl<DroneType: Drone> Simulator<DroneType> {
     }
 
     pub fn tick(&mut self, inputs: &Inputs, delta_t: Seconds) {
-        self.update_attitude(inputs.pitch, inputs.roll, delta_t);
+        self.update_attitude(inputs.pitch, inputs.roll, inputs.yaw, delta_t);
         let acceleration = self.net_acceleration(delta_t, inputs);
         self.integrate(acceleration, delta_t);
         self.update_heading(delta_t, inputs);
         self.update_horizontal_position(self.state.velocity_ned.ground_speed(), delta_t);
         self.update_battery_state(delta_t, inputs);
+        self.state.last_inputs = inputs.clone();
     }
 
     fn update_heading(&mut self, delta_t: Seconds, inputs: &Inputs) {
@@ -112,7 +114,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
         self.state.longitude += east_distance / (EARTH_RADIUS * self.state.latitude.cos());
     }
 
-    fn update_attitude(&mut self, pitch: Pitch, roll: Roll, dt: Seconds) {
+    fn update_attitude(&mut self, pitch: Pitch, roll: Roll, yaw: Yaw, dt: Seconds) {
         // 1. Compute angular acceleration in body frame
         // 2. Integrate angular velocity (body frame)
         // 3. Build omega quaternion from body-frame ω
@@ -128,11 +130,16 @@ impl<DroneType: Drone> Simulator<DroneType> {
         let roll_acceleration = drone.max_roll_acceleration() * roll.get()
             - drone.roll_damping_coefficient() * self.state.angular_velocity_body.x();
 
+        // Yaw: direct rate control — input maps directly to angular velocity around Z
+        // No acceleration/damping model, just set the rate directly
+        let yaw_rate = drone.heading_rate(yaw).to_angular_velocity();
+
         let angular_acceleration =
             AngularAcceleration3D::new(roll_acceleration, pitch_acceleration, Default::default());
 
         // 2.
         self.state.angular_velocity_body += angular_acceleration * dt;
+        self.state.angular_velocity_body.set_z(yaw_rate);
 
         // 3.
         let quat_omega = Quaternion::omega(self.state.angular_velocity_body);
@@ -488,5 +495,65 @@ mod tests {
             sim.state.attitude.pitch().to_degrees().0 < 0.0,
             "negative pitch input should produce negative pitch angle (nose down in aerospace)"
         );
+    }
+
+    #[test]
+    fn yaw_zero_input_no_rotation() {
+        let mut sim = Simulator::new(DefaultDrone {});
+        let initial_yaw = sim.state.attitude.yaw();
+        let inputs = Inputs {
+            throttle: Throttle::clamp(0.5),
+            pitch: Pitch::clamp(0.0),
+            roll: Roll::clamp(0.0),
+            yaw: Yaw::clamp(0.0),
+        };
+        sim.tick(&inputs, 1.seconds());
+        assert!(
+            (sim.state.attitude.yaw() - initial_yaw)
+                .to_degrees()
+                .0
+                .abs()
+                < 0.01
+        );
+    }
+
+    #[test]
+    fn yaw_positive_input_rotates_clockwise() {
+        let mut sim = Simulator::new(DefaultDrone {});
+        let initial_yaw = sim.state.attitude.yaw();
+        let inputs = Inputs {
+            throttle: Throttle::clamp(0.5),
+            pitch: Pitch::clamp(0.0),
+            roll: Roll::clamp(0.0),
+            yaw: Yaw::clamp(1.0),
+        };
+        sim.tick(&inputs, 1.0.seconds());
+        // Positive yaw = clockwise from above = yaw increases in aerospace convention
+        assert!(sim.state.attitude.yaw().raw() > initial_yaw.raw());
+    }
+
+    #[test]
+    fn yaw_rate_matches_drone_spec() {
+        let drone = DefaultDrone {};
+        let max_rate = drone.max_heading_rate(); // degrees/second
+        let mut sim = Simulator::new(DefaultDrone {});
+
+        let inputs = Inputs {
+            throttle: Throttle::clamp(0.5),
+            pitch: Pitch::clamp(0.0),
+            roll: Roll::clamp(0.0),
+            yaw: Yaw::clamp(1.0), // full yaw input
+        };
+
+        // Tick for 1 second — should rotate by max_heading_rate degrees
+        let steps = 100;
+        let dt = 1.0 / steps as f64;
+        for _ in 0..steps {
+            sim.tick(&inputs, dt.seconds());
+        }
+
+        let expected_yaw = max_rate.0 * 1.0; // degrees after 1 second
+        let actual_yaw = sim.state.attitude.yaw().to_degrees().raw();
+        assert!((actual_yaw - expected_yaw).abs() < 1.0); // within 1 degree
     }
 }

@@ -3,7 +3,10 @@ use std::{
     ops::{Add, Mul, Neg},
 };
 
-use crate::{simulator::types::angular_velocity_3d::AngularVelocity3D, units::angles::Radians};
+use crate::{
+    simulator::types::angular_velocity_3d::AngularVelocity3D,
+    units::angles::{Degrees, Radians},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion {
@@ -77,6 +80,11 @@ impl Quaternion {
         let siny_cosp = 2.0 * (self.w * self.z + self.x * self.y);
         let cosy_cosp = 1.0 - 2.0 * (self.y * self.y + self.z * self.z);
         Radians(siny_cosp.atan2(cosy_cosp))
+    }
+
+    pub fn yaw_normalized(&self) -> Degrees {
+        let yaw = self.yaw().to_degrees();
+        Degrees((yaw.0 % 360.0 + 360.0) % 360.0)
     }
 
     pub fn to_euler(&self) -> (Radians, Radians, Radians) {

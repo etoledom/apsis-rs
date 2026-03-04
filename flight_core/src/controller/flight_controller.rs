@@ -1,4 +1,7 @@
+use std::os::macos::raw::stat;
+
 use crate::{
+    Yaw,
     controller::{
         altitude_controller::AltitudeController, attitude_controller::AttitudeController,
         rate_controller::RateController, velocity_ned_controller::VelocityNedController,
@@ -13,8 +16,9 @@ use crate::{
             velocity_ned::VelocityNED,
         },
     },
+    state,
     units::{
-        angles::Radians,
+        angles::{Degrees, DegreesPerSecond, Radians},
         consts::G_EARTH,
         units::{Meters, Seconds},
     },
@@ -32,6 +36,8 @@ pub struct FlightController {
     attitude_controller: AttitudeController,
     rate_controller: RateController,
     limits: AirframeLimits,
+    heading_rate_target: DegreesPerSecond,
+    current_heading: Degrees,
 }
 
 impl FlightController {
@@ -42,6 +48,8 @@ impl FlightController {
             attitude_controller: AttitudeController::new(),
             rate_controller: RateController::new(),
             limits: Default::default(), // not used for now. Keeping it in case is needed later.
+            heading_rate_target: Default::default(),
+            current_heading: Default::default(),
         }
     }
 
@@ -55,8 +63,16 @@ impl FlightController {
         let v_ned = telemetry.velocity_ned;
 
         let acc_target = self.velocity_ned_controller.update(v_ned, dt);
+        self.current_heading += self.heading_rate_target * dt;
 
-        let q_target = Self::q_target_from_acceleration(acc_target, telemetry);
+        let q_target = Self::q_target_from_acceleration(acc_target, self.current_heading);
+
+        // println!(
+        //     "current_heading: {:.2}°, q_target yaw: {:.2}°, q_current yaw: {:.2}°",
+        //     self.current_heading.0,
+        //     q_target.yaw().to_degrees().0,
+        //     telemetry.attitude.yaw().to_degrees().0
+        // );
 
         let angular_rates_target =
             self.attitude_controller
@@ -70,13 +86,13 @@ impl FlightController {
             throttle,
             pitch,
             roll,
-            yaw,
+            yaw: Yaw::clamp(angular_rates_target.z().raw()),
         }
     }
 
     pub fn q_target_from_acceleration(
         acc_target: WorldFrameAcceleration,
-        telemetry: &State,
+        yaw_target: Degrees,
     ) -> Quaternion {
         let gravity = WorldFrameAcceleration::from_down(G_EARTH);
         let thrust = acc_target + gravity;
@@ -87,7 +103,7 @@ impl FlightController {
             z: thrust_dir.z, // keep Z positive (down)
         };
 
-        let yaw = telemetry.attitude.yaw();
+        let yaw = yaw_target.to_radians();
         let x_body_desired = Vec3 {
             x: yaw.cos(),
             y: yaw.sin(),
@@ -114,6 +130,10 @@ impl FlightController {
 
     pub fn get_target_velocity(&self) -> VelocityNED {
         self.velocity_ned_controller.target
+    }
+
+    pub fn set_heading_rate_target(&mut self, rate: DegreesPerSecond) {
+        self.heading_rate_target = rate;
     }
 }
 
@@ -313,7 +333,7 @@ mod flight_controller_tests {
     fn pure_north_acceleration_produces_nose_down_pitch() {
         let state = nominal_state();
         let acc = WorldFrameAcceleration::new(5.mps2(), 0.mps2(), 0.mps2());
-        let q_target = FlightController::q_target_from_acceleration(acc, &state);
+        let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         assert!(
             q_target.y < 0.0,
@@ -327,7 +347,7 @@ mod flight_controller_tests {
         let state = nominal_state();
         let acc = WorldFrameAcceleration::new(5.mps2(), 0.mps2(), 0.mps2());
 
-        let q_target = FlightController::q_target_from_acceleration(acc, &state);
+        let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         // North acceleration should produce positive pitch, no roll
         assert!(
@@ -346,7 +366,7 @@ mod flight_controller_tests {
         let state = nominal_state(); // level, yaw=0
         let acc = WorldFrameAcceleration::new(0.mps2(), 5.mps2(), 0.mps2());
 
-        let q_target = FlightController::q_target_from_acceleration(acc, &state);
+        let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         // East acceleration should produce positive roll, no pitch, no yaw
         assert!(
@@ -409,9 +429,59 @@ mod flight_controller_tests {
     fn acc_target_6_produces_31_degree_pitch() {
         let state = nominal_state();
         let acc = WorldFrameAcceleration::new(6.0.mps2(), 0.mps2(), 0.mps2());
-        let q_target = FlightController::q_target_from_acceleration(acc, &state);
+        let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         // atan(6 / 9.81) = 31.5°, nose down = negative in aerospace
         assert_relative_eq!(q_target.pitch().to_degrees().0, -31.5, epsilon = 0.5);
+    }
+
+    #[test]
+    fn q_target_yaw_90_points_east() {
+        // With zero acceleration and 90° yaw target,
+        // the drone should be level and pointing east.
+        let acc_target = WorldFrameAcceleration::zero();
+        let q = FlightController::q_target_from_acceleration(acc_target, 90.degrees());
+
+        assert!(
+            q.pitch().to_degrees().0.abs() < 0.1,
+            "pitch: {}",
+            q.pitch().to_degrees()
+        );
+        assert!(
+            q.roll().to_degrees().0.abs() < 0.1,
+            "roll: {}",
+            q.roll().to_degrees()
+        );
+        assert!(
+            (q.yaw().to_degrees().0 - 90.0).abs() < 0.1,
+            "yaw: {}",
+            q.yaw().to_degrees()
+        );
+    }
+
+    #[test]
+    fn q_target_yaw_with_north_acceleration() {
+        // With north acceleration and 90° yaw target,
+        // the drone should pitch forward (negative pitch in aerospace)
+        // but still be pointing east (90° yaw)
+        let acc_target = WorldFrameAcceleration::new(
+            3.mps2(), // north acceleration
+            0.mps2(),
+            0.mps2(),
+        );
+        let q = FlightController::q_target_from_acceleration(acc_target, 90.degrees());
+
+        // Pitch should be non-zero due to north acceleration
+        assert!(
+            q.roll().to_degrees().0 < 0.0,
+            "expected side tilt roll: {}",
+            q.roll().to_degrees()
+        );
+        // Yaw should still be 90°
+        assert!(
+            (q.yaw().to_degrees().0 - 90.0).abs() < 1.0,
+            "yaw: {}",
+            q.yaw().to_degrees()
+        );
     }
 }

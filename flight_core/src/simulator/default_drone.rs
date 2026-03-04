@@ -31,7 +31,7 @@ impl Drone for DefaultDrone {
     }
 
     fn max_heading_rate(&self) -> DegreesPerSecond {
-        DegreesPerSecond(45.0)
+        DegreesPerSecond(90.0)
     }
 
     fn battery_drain_pct(&self, throttle: Throttle) -> f64 {

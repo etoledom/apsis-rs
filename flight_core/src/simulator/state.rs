@@ -1,4 +1,5 @@
 use crate::{
+    inputs::Inputs,
     simulator::types::{
         angular_velocity_3d::AngularVelocity3D, position_ned::PositionNed, quaternion::Quaternion,
         vec2::Vec2, velocity_ned::VelocityNED,
@@ -9,7 +10,7 @@ use crate::{
     },
 };
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct State {
     pub altitude: Meters,
 
@@ -21,6 +22,7 @@ pub struct State {
 
     pub heading: Degrees,
     pub heading_rate: DegreesPerSecond,
+    pub last_inputs: Inputs,
 
     pub battery_pct: f64,
     pub latitude: f64,

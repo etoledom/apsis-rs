@@ -13,9 +13,9 @@ pub struct AttitudeController {
 impl AttitudeController {
     pub fn new() -> Self {
         Self {
-            pitch_pid: PitchPID::new(1, 0, 0.5),
-            roll_pid: RollPID::new(1, 0, 0.5),
-            yaw_pid: YawPID::new(2, 0, 0.1),
+            pitch_pid: PitchPID::new(4, 0, 2.0),
+            roll_pid: RollPID::new(4, 0, 2.0),
+            yaw_pid: YawPID::new(4, 0, 0.5),
         }
     }
     pub fn update(

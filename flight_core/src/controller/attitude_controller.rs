@@ -1,21 +1,24 @@
 use crate::{
-    controller::pid::{PitchPID, RollPID, YawPID},
+    controller::pid::AngularPID,
     simulator::types::{angular_velocity_3d::AngularVelocity3D, quaternion::Quaternion},
-    units::{angles::Radians, units::Seconds},
+    units::{
+        angles::{AngularVelocity, Radians},
+        units::Seconds,
+    },
 };
 
 pub struct AttitudeController {
-    pitch_pid: PitchPID,
-    roll_pid: RollPID,
-    yaw_pid: YawPID,
+    pitch_pid: AngularPID,
+    roll_pid: AngularPID,
+    yaw_pid: AngularPID,
 }
 
 impl AttitudeController {
     pub fn new() -> Self {
         Self {
-            pitch_pid: PitchPID::new(4, 0, 2.0),
-            roll_pid: RollPID::new(4, 0, 2.0),
-            yaw_pid: YawPID::new(4, 0, 0.5),
+            pitch_pid: AngularPID::new(4, 0, 2.0).with_limits(AngularVelocity(0.75)),
+            roll_pid: AngularPID::new(4, 0, 2.0).with_limits(AngularVelocity(0.75)),
+            yaw_pid: AngularPID::new(4, 0, 0.5).with_limits(AngularVelocity(1.5)),
         }
     }
     pub fn update(

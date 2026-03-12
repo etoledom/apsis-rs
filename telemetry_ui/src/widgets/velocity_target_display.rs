@@ -15,6 +15,7 @@ impl VelocityTargetDisplay {
         let forward = self.target.forward.0 as f32;
         let right = self.target.right.0 as f32;
         let yaw = self.target.yaw_rate.raw() as f32;
+        let up = self.target.up.0 as f32;
 
         ui.set_min_width(ui.available_width());
 
@@ -22,11 +23,11 @@ impl VelocityTargetDisplay {
         ui.add_space(4.0);
 
         ui.horizontal(|ui| {
-            DataLabel::new(forward).label("F").show(ui);
-            DataLabel::new(right).unit("m/s").label("R").show(ui);
-            ui.separator();
-            DataLabel::new(yaw).unit("rad/s").label("Y").show(ui);
+            DataLabel::new(forward).label("F:").show(ui);
+            DataLabel::new(right).label("R:").show(ui);
+            DataLabel::new(up).unit("m/s").label("Up:").show(ui);
         });
+        DataLabel::new(yaw).unit("rad/s").label("Y").show(ui);
 
         // Visual bars
         //
@@ -47,6 +48,11 @@ impl VelocityTargetDisplay {
                     .set_max(max)
                     .set_height(bar_height)
                     .set_color(theme::ORANGE)
+                    .show(ui);
+                CenterBar::new(up)
+                    .set_max(max)
+                    .set_height(bar_height)
+                    .set_color(theme::YELLOW)
                     .show(ui);
                 CenterBar::new(yaw)
                     .set_max(2.0)

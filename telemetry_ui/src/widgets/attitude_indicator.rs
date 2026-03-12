@@ -63,7 +63,7 @@ impl AttitudeIndicator {
         // ── ALLOCATE SPACE ──
         // We want a square widget. Use available width as the size,
         // capped at a reasonable maximum so it doesn't get too large.
-        let size = ui.available_width(); //.min(220.0);
+        let size = ui.available_width();
         // Radius of the ADI circle — slightly smaller than half the rect
         // to leave room for the border
         let radius = (size * 0.48).min(100.0);

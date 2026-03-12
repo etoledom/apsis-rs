@@ -7,9 +7,12 @@ use flight_core::units::*;
 fn hover() {
     let target_altitude = 10.meters();
     let delta_t = 0.1.seconds();
+    let drone = DefaultDrone {};
+    let mut simulator = Simulator::new(drone);
+    simulator.state.position_ned = PositionNed::from_altitude_ned(-10.meters());
 
-    let mut simulator = Simulator::new(DefaultDrone {});
-    let mut flight_controller = FlightController::new(target_altitude, VelocityNED::default());
+    let mut flight_controller = FlightController::for_drone(drone);
+    flight_controller.set_target_down(AxisTarget::Position(-10.meters()));
 
     for _ in 0..100 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
@@ -27,10 +30,12 @@ fn hover() {
 fn north_velocity() {
     let target_velocity = VelocityNED::new(5.mps(), 0.mps(), 0.mps());
     let delta_t = 0.1.seconds();
-
-    let mut simulator = Simulator::new(DefaultDrone {});
+    let drone = DefaultDrone {};
+    let mut simulator = Simulator::new(drone);
     simulator.state.position_ned = PositionNed::from_altitude_ned(-10.meters()); // starts in air.
-    let mut flight_controller = FlightController::new(10.meters(), target_velocity);
+    let mut flight_controller = FlightController::for_drone(drone);
+    flight_controller.set_target_velocity(target_velocity);
+    flight_controller.set_target_down(AxisTarget::Position(-10.meters()));
 
     for _ in 0..100 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
@@ -48,10 +53,12 @@ fn north_velocity() {
 fn east_velocity() {
     let target_velocity = VelocityNED::new(0.mps(), 2.mps(), 0.mps());
     let delta_t = 0.1.seconds();
+    let drone = DefaultDrone {};
 
-    let mut simulator = Simulator::new(DefaultDrone {});
+    let mut simulator = Simulator::new(drone);
     simulator.state.position_ned = PositionNed::from_altitude_ned(-10.meters()); // starts in air.
-    let mut flight_controller = FlightController::new(10.meters(), target_velocity);
+    let mut flight_controller = FlightController::for_drone(drone);
+    flight_controller.set_target_east(AxisTarget::Velocity(target_velocity.east()));
 
     for _ in 0..100 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
@@ -70,9 +77,15 @@ fn increases_altitude_east_north_velocity() {
     let target_altitude = 10.meters();
     let target_velocity = VelocityNED::new(5.mps(), 2.mps(), 0.mps());
     let delta_t = 0.1.seconds();
+    let drone = DefaultDrone {};
 
-    let mut simulator = Simulator::new(DefaultDrone {});
-    let mut flight_controller = FlightController::new(target_altitude, target_velocity);
+    let mut simulator = Simulator::new(drone);
+    simulator.state.position_ned = PositionNed::from_altitude_ned(-target_altitude);
+
+    let mut flight_controller = FlightController::for_drone(drone);
+    flight_controller.set_target_down(AxisTarget::Position(-10.meters()));
+    flight_controller.set_target_north(AxisTarget::Velocity(target_velocity.north()));
+    flight_controller.set_target_east(AxisTarget::Velocity(target_velocity.east()));
 
     for _ in 0..100 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
@@ -100,17 +113,18 @@ fn increases_altitude_east_north_velocity() {
 
 #[test]
 fn controller_yaw_rate_rotates_drone() {
-    let mut sim = Simulator::new(DefaultDrone {});
-    let mut controller = FlightController::new(10.0.meters(), Default::default());
+    let drone = DefaultDrone {};
+    let mut sim = Simulator::new(drone);
+    let mut flight_controller = FlightController::for_drone(drone);
 
     // Command a yaw rate
-    controller.set_yaw_rate_target(1.0.into());
+    flight_controller.set_yaw_rate_target(1.0.into());
 
     let initial_yaw = sim.state.attitude.yaw().to_degrees().0;
 
     let dt = 0.01.seconds();
     for _ in 0..200 {
-        let inputs = controller.update(&sim.state, dt);
+        let inputs = flight_controller.update(&sim.state, dt);
         sim.tick(&inputs, dt);
     }
 

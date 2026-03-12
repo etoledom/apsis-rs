@@ -104,6 +104,10 @@ impl Radians {
         self.0.cos()
     }
 
+    pub fn tan(&self) -> f64 {
+        self.0.tan()
+    }
+
     pub fn clamp(self, min: Radians, max: Radians) -> Radians {
         Radians(self.0.clamp(min.0, max.0))
     }
@@ -118,6 +122,22 @@ impl Radians {
 
     pub fn raw_f32(&self) -> f32 {
         self.raw() as f32
+    }
+}
+
+pub trait RadiansLiteral {
+    fn radians(self) -> Radians;
+}
+
+impl RadiansLiteral for f64 {
+    fn radians(self) -> Radians {
+        Radians(self)
+    }
+}
+
+impl RadiansLiteral for i32 {
+    fn radians(self) -> Radians {
+        Radians(self as f64)
     }
 }
 
@@ -164,6 +184,12 @@ impl Sub for Radians {
 
     fn sub(self, rhs: Self) -> Self::Output {
         Radians(self.0 - rhs.0)
+    }
+}
+
+impl SubAssign for Radians {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 
@@ -235,11 +261,17 @@ impl Add<Degrees> for Degrees {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, PartialEq, Default, Debug)]
-pub struct AngularVelocity(f64);
+pub struct AngularVelocity(pub f64);
 
 impl AngularVelocity {
+    pub fn new(value: f64) -> Self {
+        AngularVelocity(value)
+    }
     pub fn raw(&self) -> f64 {
         self.0
+    }
+    pub fn clamping(self, min: AngularVelocity, max: AngularVelocity) -> AngularVelocity {
+        AngularVelocity(self.0.clamp(min.0, max.0))
     }
 }
 
@@ -257,6 +289,14 @@ impl Mul<Seconds> for AngularVelocity {
     }
 }
 
+impl Neg for AngularVelocity {
+    type Output = AngularVelocity;
+
+    fn neg(self) -> Self::Output {
+        AngularVelocity(-self.0)
+    }
+}
+
 impl Div<Seconds> for Radians {
     type Output = AngularVelocity;
 
@@ -268,6 +308,12 @@ impl Div<Seconds> for Radians {
 impl AddAssign for AngularVelocity {
     fn add_assign(&mut self, rhs: Self) {
         self.0 += rhs.0;
+    }
+}
+
+impl SubAssign for AngularVelocity {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 

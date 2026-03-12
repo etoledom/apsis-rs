@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul};
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 use crate::{
     simulator::types::vec3::Vec3,
@@ -17,6 +17,9 @@ impl PositionNed {
             z: down,
         })
     }
+    pub fn zero() -> Self {
+        Self::new(0.meters(), 0.meters(), 0.meters())
+    }
     pub fn from_altitude_ned(down: Meters) -> Self {
         Self::new(0.meters(), 0.meters(), down)
     }
@@ -28,6 +31,15 @@ impl PositionNed {
     }
     pub fn down(&self) -> Meters {
         self.0.z
+    }
+    pub fn set_north(&mut self, value: Meters) {
+        self.0.x = value;
+    }
+    pub fn set_east(&mut self, value: Meters) {
+        self.0.y = value;
+    }
+    pub fn set_down(&mut self, value: Meters) {
+        self.0.z = value;
     }
 }
 
@@ -43,11 +55,15 @@ impl Add for PositionNed {
     type Output = PositionNed;
 
     fn add(self, rhs: Self) -> Self::Output {
-        PositionNed::new(
-            self.north() + rhs.north(),
-            self.east() + rhs.east(),
-            self.down() + rhs.down(),
-        )
+        PositionNed(self.0 + rhs.0)
+    }
+}
+
+impl Sub for PositionNed {
+    type Output = PositionNed;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        PositionNed(self.0 - rhs.0)
     }
 }
 

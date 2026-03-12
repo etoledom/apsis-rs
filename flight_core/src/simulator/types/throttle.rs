@@ -22,6 +22,10 @@ impl Throttle {
         Self(UnitInterval::clamp(value))
     }
 
+    pub fn clamping(self, value: f64) -> Self {
+        Self::clamp(value)
+    }
+
     #[inline(always)]
     pub fn get(self) -> f64 {
         self.0.get()

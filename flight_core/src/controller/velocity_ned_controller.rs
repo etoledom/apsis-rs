@@ -1,37 +1,34 @@
 use crate::{
-    controller::pid::{VelocityDownPID, VelocityEastPID, VelocityNorthPID},
+    controller::pid::VelocityPID,
     simulator::types::{acceleration_3d::WorldFrameAcceleration, velocity_ned::VelocityNED},
-    units::{acceleration::Acceleration, units::Seconds},
+    units::{PerSecond, units::Seconds},
 };
 
 pub struct VelocityNedController {
     pub target: VelocityNED,
-    north_pid: VelocityNorthPID,
-    east_pid: VelocityEastPID,
-    down_pid: VelocityDownPID,
+    north_pid: VelocityPID,
+    east_pid: VelocityPID,
+    down_pid: VelocityPID,
+    k_ff: PerSecond, // Feed forward gain.
 }
 
 impl VelocityNedController {
     pub fn new(target: VelocityNED) -> Self {
         Self {
             target,
-            north_pid: VelocityNorthPID::new(5.5, 0.8, 0.2),
-            east_pid: VelocityEastPID::new(5.5, 0.8, 0.2),
-            down_pid: VelocityDownPID::new(0.8, 0, 0.1),
+            north_pid: VelocityPID::new(5.5, 0.5, 0.2),
+            east_pid: VelocityPID::new(5.5, 0.5, 0.2),
+            down_pid: VelocityPID::new(4.0, 0.0, 0.3),
+            k_ff: PerSecond(0.2),
         }
     }
     pub fn update(&mut self, current: VelocityNED, dt: Seconds) -> WorldFrameAcceleration {
         let error = self.target - current;
 
         WorldFrameAcceleration::new(
-            Acceleration(
-                self.north_pid
-                    .update(error.north(), dt)
-                    .0
-                    .clamp(-10.0, 10.0),
-            ),
-            self.east_pid.update(error.east(), dt),
-            self.down_pid.update(error.down(), dt),
+            self.north_pid.update(error.north(), dt) + self.target.north() * self.k_ff,
+            self.east_pid.update(error.east(), dt) + self.target.east() * self.k_ff,
+            self.down_pid.update(error.down(), dt) + self.target.down() * self.k_ff,
         )
     }
 }
@@ -43,14 +40,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn zero_acceleration_with_zero_error() {
+    fn feedforward_maintains_velocity_at_zero_error() {
         let mut controller =
             VelocityNedController::new(VelocityNED::new(5.mps(), 0.mps(), 0.mps()));
         let current = VelocityNED::new(5.mps(), 0.mps(), 0.mps());
 
         let acc_target = controller.update(current, 0.1.seconds());
 
-        assert_eq!(acc_target.norm().0, 0.0);
+        assert!(acc_target.north().0 > 0.0); // feedforward maintains velocity
+        assert_eq!(acc_target.east().0, 0.0); // no east target, no feedforward
+        assert_eq!(acc_target.down().0, 0.0); // no down target, no feedforward
     }
 
     #[test]
@@ -114,6 +113,7 @@ mod tests {
             let acc_target = controller.update(current, dt);
             current += acc_target * dt;
         }
+        println!("integral: {}", controller.north_pid.integral.0); // if available
 
         assert!(
             (current.north().0 - 10.0).abs() < 0.5,
@@ -148,5 +148,23 @@ mod tests {
             acc.east().0 > 0.0,
             "positive east velocity error should produce positive east acceleration"
         );
+    }
+
+    #[test]
+    fn climb_target_produces_negative_down_acceleration() {
+        let mut controller =
+            VelocityNedController::new(VelocityNED::new(0.mps(), 0.mps(), -2.mps()));
+        let current = VelocityNED::zero();
+        let acc_target = controller.update(current, 0.1.seconds());
+        assert!(acc_target.down().0 < 0.0);
+    }
+
+    #[test]
+    fn descend_target_produces_positive_down_acceleration() {
+        let mut controller =
+            VelocityNedController::new(VelocityNED::new(0.mps(), 0.mps(), 2.mps()));
+        let current = VelocityNED::zero();
+        let acc_target = controller.update(current, 0.1.seconds());
+        assert!(acc_target.down().0 > 0.0);
     }
 }

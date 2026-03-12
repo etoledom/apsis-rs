@@ -1,9 +1,6 @@
-use eframe::egui::{self, Align, Layout, Theme, vec2};
+use eframe::egui::{self, Align, Layout};
 
-use crate::{
-    theme,
-    widgets::components::{data_label::DataLabel, status_box::StatusBox},
-};
+use crate::{theme, widgets::components::status_box::StatusBox};
 use std::time::Duration;
 
 pub struct HeaderBar {

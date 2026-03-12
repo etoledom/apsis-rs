@@ -1,6 +1,8 @@
-use std::ops::Add;
+use std::ops::{Add, Neg, Sub};
 
-use crate::simulator::types::signed_unit_interval::SignedUnitInterval;
+use crate::{
+    simulator::types::signed_unit_interval::SignedUnitInterval, units::traits::RawRepresentable,
+};
 
 #[derive(Clone, Copy, Default)]
 pub struct Pitch(SignedUnitInterval);
@@ -33,5 +35,27 @@ impl Add for Pitch {
 
     fn add(self, rhs: Self) -> Self::Output {
         Pitch::clamp(self.0.get() + rhs.0.get())
+    }
+}
+
+impl Sub<Pitch> for Pitch {
+    type Output = Pitch;
+
+    fn sub(self, rhs: Pitch) -> Self::Output {
+        Pitch::clamp(self.0.get() - rhs.0.get())
+    }
+}
+
+impl RawRepresentable for Pitch {
+    fn raw(&self) -> f64 {
+        self.0.get()
+    }
+}
+
+impl Neg for Pitch {
+    type Output = Pitch;
+
+    fn neg(self) -> Self::Output {
+        Pitch(SignedUnitInterval::clamp(-self.0.get()))
     }
 }

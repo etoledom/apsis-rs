@@ -10,6 +10,7 @@ use flight_core::units::{
 pub struct Target {
     pub forward: Velocity,
     pub right: Velocity,
+    pub up: Velocity,
     pub yaw_rate: AngularVelocity,
 }
 
@@ -47,12 +48,12 @@ impl<'a> Controller for KeyboardController<'a> {
                 updated_target.right -= step;
             }
 
-            // if input.key_down(Key::ArrowUp) {
-            //     updated_target.velocity.add_down(-step);
-            // }
-            // if input.key_down(Key::ArrowDown) {
-            //     updated_target.velocity.add_down(step);
-            // }
+            if input.key_down(Key::ArrowUp) {
+                updated_target.up += step;
+            }
+            if input.key_down(Key::ArrowDown) {
+                updated_target.up -= step
+            }
 
             if input.key_down(Key::ArrowLeft) {
                 updated_target.yaw_rate = DegreesPerSecond(-90.0).to_angular_velocity();
@@ -76,6 +77,7 @@ impl<'a> Controller for KeyboardController<'a> {
 
         updated_target.forward.clamp(-max_vel, max_vel);
         updated_target.right.clamp(-max_vel, max_vel);
+        updated_target.up.clamp(-max_vel, max_vel);
 
         return updated_target;
     }

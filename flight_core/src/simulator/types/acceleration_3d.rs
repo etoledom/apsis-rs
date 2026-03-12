@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Acceleration3D(Vec3<Acceleration>);
 
 impl Acceleration3D {
@@ -99,7 +99,7 @@ impl BodyFrameAcceleration {
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct WorldFrameAcceleration(Acceleration3D);
 
 impl WorldFrameAcceleration {
@@ -136,6 +136,30 @@ impl WorldFrameAcceleration {
             z: self.down().raw(),
         }
     }
+    pub fn setting_down(self, down: Acceleration) -> Self {
+        Self(Acceleration3D::new(self.0.x(), self.0.y(), down))
+    }
+    pub fn clamping_north(self, clamp: Acceleration) -> Self {
+        Self(Acceleration3D::new(
+            self.north().clamping(-clamp, clamp),
+            self.east(),
+            self.down(),
+        ))
+    }
+    pub fn clamping_east(self, clamp: Acceleration) -> Self {
+        Self(Acceleration3D::new(
+            self.north(),
+            self.east().clamping(-clamp, clamp),
+            self.down(),
+        ))
+    }
+    pub fn clamping_down(self, clamp: Acceleration) -> Self {
+        Self(Acceleration3D::new(
+            self.north(),
+            self.east(),
+            self.down().clamping(-clamp, clamp),
+        ))
+    }
 }
 
 impl Add for WorldFrameAcceleration {
@@ -147,6 +171,14 @@ impl Add for WorldFrameAcceleration {
             self.east() + rhs.east(),
             self.down() + rhs.down(),
         ))
+    }
+}
+
+impl Sub for WorldFrameAcceleration {
+    type Output = WorldFrameAcceleration;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        WorldFrameAcceleration(self.0 - rhs.0)
     }
 }
 

@@ -3,6 +3,7 @@ use crate::{
     units::{
         acceleration::Acceleration,
         angles::{AngularVelocity, Radians},
+        traits::{Initializable, RawRepresentable},
         units::{Meters, Velocity},
     },
 };
@@ -86,6 +87,58 @@ impl Gain<AngularVelocity, Pitch> for LinearGain {
 impl Gain<AngularVelocity, Yaw> for LinearGain {
     fn apply(&self, value: AngularVelocity) -> Yaw {
         Yaw::clamp(self.0 * value.raw())
+    }
+}
+
+// --- Converter ---
+//
+
+#[derive(Default)]
+pub struct Converter;
+
+impl Converter {
+    pub fn convert<In, Out>(input: In) -> Out
+    where
+        In: RawRepresentable,
+        Out: Initializable,
+    {
+        Out::new(input.raw())
+    }
+}
+
+impl Gain<Acceleration, Velocity> for LinearGain {
+    fn apply(&self, value: Acceleration) -> Velocity {
+        Velocity(self.0 * value.raw())
+    }
+}
+
+impl Gain<Pitch, AngularVelocity> for LinearGain {
+    fn apply(&self, value: Pitch) -> AngularVelocity {
+        AngularVelocity::new(self.0 * value.get())
+    }
+}
+
+impl Gain<Roll, AngularVelocity> for LinearGain {
+    fn apply(&self, value: Roll) -> AngularVelocity {
+        AngularVelocity::new(self.0 * value.get())
+    }
+}
+
+impl Gain<Yaw, AngularVelocity> for LinearGain {
+    fn apply(&self, value: Yaw) -> AngularVelocity {
+        AngularVelocity::new(self.0 * value.get())
+    }
+}
+
+impl Gain<Velocity, Meters> for LinearGain {
+    fn apply(&self, value: Velocity) -> Meters {
+        Meters(self.0 * value.0)
+    }
+}
+
+impl Gain<AngularVelocity, Radians> for LinearGain {
+    fn apply(&self, value: AngularVelocity) -> Radians {
+        Radians(self.0 * value.raw())
     }
 }
 

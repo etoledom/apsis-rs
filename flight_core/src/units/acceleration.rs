@@ -11,6 +11,9 @@ impl Acceleration {
     pub fn raw(&self) -> f64 {
         self.0
     }
+    pub fn clamping(self, min: Acceleration, max: Acceleration) -> Acceleration {
+        Acceleration(self.0.clamp(min.0, max.0))
+    }
 }
 
 impl Neg for Acceleration {

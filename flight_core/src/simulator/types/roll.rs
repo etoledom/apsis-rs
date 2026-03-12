@@ -1,6 +1,8 @@
-use std::ops::Add;
+use std::ops::{Add, Neg, Sub};
 
-use crate::simulator::types::signed_unit_interval::SignedUnitInterval;
+use crate::{
+    simulator::types::signed_unit_interval::SignedUnitInterval, units::traits::RawRepresentable,
+};
 
 #[derive(Clone, Copy, Default)]
 pub struct Roll(SignedUnitInterval);
@@ -29,5 +31,27 @@ impl Add for Roll {
 
     fn add(self, rhs: Self) -> Self::Output {
         Roll::clamp(self.get() + rhs.get())
+    }
+}
+
+impl Sub<Roll> for Roll {
+    type Output = Roll;
+
+    fn sub(self, rhs: Roll) -> Self::Output {
+        Roll::clamp(self.get() - rhs.get())
+    }
+}
+
+impl RawRepresentable for Roll {
+    fn raw(&self) -> f64 {
+        self.0.get()
+    }
+}
+
+impl Neg for Roll {
+    type Output = Roll;
+
+    fn neg(self) -> Self::Output {
+        Roll(SignedUnitInterval::clamp(-self.0.get()))
     }
 }

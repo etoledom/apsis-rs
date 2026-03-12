@@ -58,6 +58,18 @@ impl<T: Sub<T, Output = T>> Sub for Vec3<T> {
     }
 }
 
+impl<T: Add<T, Output = T>> Add for Vec3<T> {
+    type Output = Vec3<T>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Vec3 {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
 impl<T: Mul<f64, Output = T>> Mul<f64> for Vec3<T> {
     type Output = Vec3<T>;
 

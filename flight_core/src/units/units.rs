@@ -71,6 +71,12 @@ impl Neg for Meters {
     }
 }
 
+impl SubAssign for Meters {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
+    }
+}
+
 pub trait MettersLiteral {
     fn meters(self) -> Meters;
 }
@@ -93,7 +99,7 @@ pub struct PerMeter(pub f64); // 1/m
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct PerSecond(pub f64); // 1/m
+pub struct PerSecond(pub f64); // 1/s
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, PartialEq, Debug)]
@@ -114,6 +120,14 @@ impl Velocity {
 
     pub fn clamping(&self, min: Velocity, max: Velocity) -> Self {
         Self(self.0.clamp(min.into(), max.into()))
+    }
+}
+
+impl Mul<PerSecond> for Velocity {
+    type Output = Acceleration;
+
+    fn mul(self, rhs: PerSecond) -> Self::Output {
+        Acceleration(self.0 * rhs.0)
     }
 }
 
@@ -148,6 +162,22 @@ impl Add for VelocitySquare {
 
     fn add(self, rhs: Self) -> Self::Output {
         VelocitySquare(self.0 + rhs.0)
+    }
+}
+
+impl Div<Velocity> for VelocitySquare {
+    type Output = Velocity;
+
+    fn div(self, rhs: Velocity) -> Self::Output {
+        Velocity(self.0 / rhs.0)
+    }
+}
+
+impl Div<Acceleration> for VelocitySquare {
+    type Output = Meters;
+
+    fn div(self, rhs: Acceleration) -> Self::Output {
+        Meters(self.0 / rhs.0)
     }
 }
 

@@ -1,21 +1,14 @@
 use std::ops::{Add, Neg, Sub};
 
 use crate::{
-    simulator::types::signed_unit_interval::SignedUnitInterval, units::traits::RawRepresentable,
+    simulator::types::signed_unit_interval::SignedUnitInterval,
+    units::traits::{Initializable, RawRepresentable},
 };
 
 #[derive(Clone, Copy, Default)]
 pub struct Pitch(SignedUnitInterval);
 
 impl Pitch {
-    pub fn new(value: f64) -> Option<Self> {
-        if let Some(value) = SignedUnitInterval::new(value) {
-            Some(Self(value))
-        } else {
-            None
-        }
-    }
-
     pub fn clamp(value: f64) -> Self {
         Self(SignedUnitInterval::clamp(value))
     }
@@ -27,6 +20,12 @@ impl Pitch {
 
     pub fn zero() -> Self {
         Self(SignedUnitInterval::clamp(0.0))
+    }
+}
+
+impl Initializable for Pitch {
+    fn new(value: f64) -> Self {
+        Self::clamp(value)
     }
 }
 

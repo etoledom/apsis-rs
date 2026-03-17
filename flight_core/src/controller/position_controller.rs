@@ -1,77 +1,98 @@
-use crate::{
-    PositionNed,
-    controller::pid::PositionPID,
-    units::{Meters, Velocity, VelocityLiteral, units::Seconds},
-};
+use crate::{PositionNed, VelocityNed, controller::pid::PositionPID, units::units::Seconds};
 
 pub struct PositionController {
-    pub target: PositionNed,
     north_pid: PositionPID,
     east_pid: PositionPID,
     altitude_pid: PositionPID,
 }
 
 impl PositionController {
-    pub fn new(target: PositionNed) -> Self {
+    pub fn new(velocity_max: VelocityNed) -> Self {
         Self {
-            target,
-            north_pid: PositionPID::new(1, 0, 0.1).with_limits(3.mps()),
-            east_pid: PositionPID::new(1, 0, 0.1).with_limits(3.mps()),
-            altitude_pid: PositionPID::new(5, 0, 0.1).with_limits(5.mps()),
+            north_pid: PositionPID::new(0.95, 0, 0).with_limits(velocity_max.north()),
+            east_pid: PositionPID::new(0.95, 0, 0).with_limits(velocity_max.east()),
+            altitude_pid: PositionPID::new(1, 0, 0).with_limits(velocity_max.down()),
         }
     }
 
-    pub fn update_north(&mut self, current: Meters, dt: Seconds) -> Velocity {
-        let error = self.target.north() - current;
-        self.north_pid.update(error, dt).clamping(-5.mps(), 5.mps())
-    }
-
-    pub fn update_east(&mut self, current: Meters, dt: Seconds) -> Velocity {
-        let error = self.target.east() - current;
-        self.east_pid.update(error, dt).clamping(-5.mps(), 5.mps())
-    }
-
-    pub fn update_down(&mut self, current: Meters, dt: Seconds) -> Velocity {
-        let error = self.target.down() - current;
-
-        let target = self
-            .altitude_pid
-            .update(error, dt)
-            .clamping(-5.mps(), 5.mps());
-
-        target
+    pub fn update(
+        &mut self,
+        current: PositionNed,
+        target: PositionNed,
+        dt: Seconds,
+    ) -> VelocityNed {
+        VelocityNed::new(
+            self.north_pid.update(target.north() - current.north(), dt),
+            self.east_pid.update(target.east() - current.east(), dt),
+            self.altitude_pid.update(target.down() - current.down(), dt),
+        )
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::{
-//         simulator::types::position_ned::PositionNed,
-//         units::units::{MettersLiteral, SecondsLiteral},
-//     };
+#[cfg(test)]
+mod tests {
+    use crate::units::{MetersLiteral, SecondsLiteral, VelocityLiteral, traits::RawRepresentable};
 
-//     use super::*;
+    use super::*;
 
-//     #[test]
-//     fn test_controller_throttles_up() {
-//         let state = State {
-//             ..Default::default()
-//         };
-//         let mut controller = PositionController::new(10.meters());
-//         let throttle = controller.update(&state, 1.seconds());
+    const EPSILON: f64 = 1e-10;
 
-//         assert_eq!(throttle.get(), 1.0);
-//     }
+    #[test]
+    fn zero_error_produces_zero_correction() {
+        let mut controller = PositionController::new(VelocityNed::new(10.mps(), 10.mps(), 5.mps()));
+        let current = PositionNed::new(10.meters(), 5.meters(), -10.0.meters());
+        let target = current;
 
-//     #[test]
-//     fn test_controller_throttles_down() {
-//         let state = State {
-//             position_ned: PositionNed::new(Meters::zero(), Meters::zero(), Meters(-10.0)),
-//             ..Default::default()
-//         };
-//         let mut controller = AltitudeController::new(0.meters());
-//         let throttle = controller.update(&state, 1.seconds());
+        let correction = controller.update(current, target, 0.01.seconds());
+        assert!(correction.north().raw().abs() < EPSILON);
+        assert!(correction.east().raw().abs() < EPSILON);
+        assert!(correction.down().raw().abs() < EPSILON);
+    }
 
-//         assert_eq!(throttle.get(), 0.0);
-//     }
-// }
+    #[test]
+    fn positive_error_produces_positive_correction() {
+        let mut controller = PositionController::new(VelocityNed::new(10.mps(), 10.mps(), 5.mps()));
+        let current = PositionNed::new(8.meters(), 4.meters(), -6.0.meters());
+        let target = PositionNed::new(10.meters(), 6.meters(), -8.0.meters());
+
+        let correction = controller.update(current, target, 0.01.seconds());
+        assert!((correction.north().raw() - 1.9).abs() < EPSILON);
+        assert!((correction.east().raw() - 1.9).abs() < EPSILON);
+        assert!((correction.down().raw() - (-2.0)).abs() < EPSILON);
+    }
+
+    #[test]
+    fn negative_error_produces_negative_correction() {
+        let mut controller = PositionController::new(VelocityNed::new(10.mps(), 10.mps(), 5.mps()));
+        let current = PositionNed::new(12.meters(), 8.meters(), -12.0.meters());
+        let target = PositionNed::new(10.meters(), 6.meters(), -10.0.meters());
+
+        let correction = controller.update(current, target, 0.01.seconds());
+        assert!((correction.north().raw() - (-1.9)).abs() < EPSILON);
+        assert!((correction.east().raw() - (-1.9)).abs() < EPSILON);
+        assert!((correction.down().raw() - 2.0).abs() < EPSILON);
+    }
+
+    #[test]
+    fn output_is_clamped_to_max_velocity() {
+        let mut controller = PositionController::new(VelocityNed::new(3.mps(), 3.mps(), 2.mps()));
+        let current = PositionNed::new(0.meters(), 0.meters(), 0.meters());
+        let target = PositionNed::new(100.meters(), 100.meters(), -100.0.meters());
+
+        let correction = controller.update(current, target, 0.01.seconds());
+        assert!((correction.north().raw() - 3.0).abs() < EPSILON);
+        assert!((correction.east().raw() - 3.0).abs() < EPSILON);
+        assert!((correction.down().raw() - (-2.0)).abs() < EPSILON);
+    }
+
+    #[test]
+    fn altitude_has_higher_gain_than_horizontal() {
+        let mut controller =
+            PositionController::new(VelocityNed::new(10.mps(), 10.mps(), 10.mps()));
+        let current = PositionNed::new(0.meters(), 0.meters(), 0.meters());
+        let target = PositionNed::new(1.meters(), 1.meters(), -1.meters());
+
+        let correction = controller.update(current, target, 0.01.seconds());
+        assert!(correction.down().raw().abs() > correction.north().raw().abs());
+    }
+}

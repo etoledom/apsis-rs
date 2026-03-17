@@ -1,21 +1,14 @@
 use std::ops::{Add, Neg, Sub};
 
 use crate::{
-    simulator::types::signed_unit_interval::SignedUnitInterval, units::traits::RawRepresentable,
+    simulator::types::signed_unit_interval::SignedUnitInterval,
+    units::traits::{Initializable, RawRepresentable},
 };
 
 #[derive(Clone, Copy, Default)]
 pub struct Yaw(SignedUnitInterval);
 
 impl Yaw {
-    pub fn new(value: f64) -> Option<Self> {
-        if let Some(value) = SignedUnitInterval::new(value) {
-            Some(Self(value))
-        } else {
-            None
-        }
-    }
-
     pub fn clamp(value: f64) -> Self {
         Self(SignedUnitInterval::clamp(value))
     }
@@ -26,6 +19,11 @@ impl Yaw {
     }
 }
 
+impl Initializable for Yaw {
+    fn new(value: f64) -> Self {
+        Self::clamp(value)
+    }
+}
 impl Add for Yaw {
     type Output = Yaw;
 

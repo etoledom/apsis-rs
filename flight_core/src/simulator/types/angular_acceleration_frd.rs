@@ -1,14 +1,14 @@
 use std::ops::Mul;
 
 use crate::{
-    simulator::types::{angular_velocity_3d::AngularVelocity3D, vec3::Vec3},
+    simulator::types::{angular_velocity_frd::AngularVelocityFrd, vec3::Vec3},
     units::{angles::AngularAcceleration, units::Seconds},
 };
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct AngularAcceleration3D(Vec3<AngularAcceleration>);
+pub struct AngularAccelerationFrd(Vec3<AngularAcceleration>);
 
-impl AngularAcceleration3D {
+impl AngularAccelerationFrd {
     pub fn new(x: AngularAcceleration, y: AngularAcceleration, z: AngularAcceleration) -> Self {
         Self(Vec3 { x, y, z })
     }
@@ -24,10 +24,10 @@ impl AngularAcceleration3D {
     }
 }
 
-impl Mul<Seconds> for AngularAcceleration3D {
-    type Output = AngularVelocity3D;
+impl Mul<Seconds> for AngularAccelerationFrd {
+    type Output = AngularVelocityFrd;
 
     fn mul(self, rhs: Seconds) -> Self::Output {
-        AngularVelocity3D::new(self.x() * rhs, self.y() * rhs, self.z() * rhs)
+        AngularVelocityFrd::new(self.x() * rhs, self.y() * rhs, self.z() * rhs)
     }
 }

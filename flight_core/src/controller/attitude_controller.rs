@@ -1,6 +1,6 @@
 use crate::{
     controller::pid::AngularPID,
-    simulator::types::{angular_velocity_3d::AngularVelocity3D, quaternion::Quaternion},
+    simulator::types::{angular_velocity_frd::AngularVelocityFrd, quaternion::Quaternion},
     units::{
         angles::{AngularVelocity, Radians},
         units::Seconds,
@@ -16,8 +16,8 @@ pub struct AttitudeController {
 impl AttitudeController {
     pub fn new() -> Self {
         Self {
-            pitch_pid: AngularPID::new(4, 0, 2.0).with_limits(AngularVelocity(0.75)),
-            roll_pid: AngularPID::new(4, 0, 2.0).with_limits(AngularVelocity(0.75)),
+            pitch_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity(1.5)),
+            roll_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity(1.5)),
             yaw_pid: AngularPID::new(4, 0, 0.5).with_limits(AngularVelocity(1.5)),
         }
     }
@@ -26,10 +26,10 @@ impl AttitudeController {
         target: Quaternion,
         current: Quaternion,
         dt: Seconds,
-    ) -> AngularVelocity3D {
+    ) -> AngularVelocityFrd {
         let q_error = Self::calculate_error(target, current);
 
-        AngularVelocity3D::new(
+        AngularVelocityFrd::new(
             self.roll_pid.update(Radians(q_error.x * 2.0), dt),
             self.pitch_pid.update(Radians(q_error.y * 2.0), dt),
             self.yaw_pid.update(Radians(q_error.z * 2.0), dt),

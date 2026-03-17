@@ -2,7 +2,7 @@ use crate::{
     simulator::{
         drone::Drone,
         force_model::{context::Context, force_model::ForceModel},
-        types::acceleration_3d::WorldFrameAcceleration,
+        types::acceleration_3d::AccelerationNed,
     },
     units::{consts::G_EARTH, units::Seconds},
 };
@@ -14,8 +14,8 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for GravityModel {
         &self,
         _: &Context<Vehicle>,
         _: Seconds,
-    ) -> crate::simulator::types::acceleration_3d::WorldFrameAcceleration {
-        WorldFrameAcceleration::from_down(G_EARTH)
+    ) -> crate::simulator::types::acceleration_3d::AccelerationNed {
+        AccelerationNed::from_down(G_EARTH)
     }
 }
 

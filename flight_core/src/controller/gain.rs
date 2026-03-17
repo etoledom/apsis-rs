@@ -24,6 +24,12 @@ impl LinearGain {
     }
 }
 
+impl RawRepresentable for LinearGain {
+    fn raw(&self) -> f64 {
+        self.0
+    }
+}
+
 impl From<f64> for LinearGain {
     fn from(value: f64) -> Self {
         Self(value)

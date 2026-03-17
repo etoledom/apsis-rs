@@ -6,7 +6,8 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use flight_core::{
     controller::{AxisTarget, FlightController},
-    units::{SecondsLiteral, acceleration::AccelerationLiteral},
+    units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
+    velocity_frd::VelocityFrd,
     *,
 };
 mod sim_ui;
@@ -23,7 +24,9 @@ fn main() -> eframe::Result {
         let mut simulator = Simulator::new(drone);
         let mut controller = FlightController::for_drone(drone);
         let mut last_time = Instant::now();
-        let mut previous_pilot_targets: Target = Default::default();
+
+        controller.set_target_north(AxisTarget::Position(20.meters()));
+
         loop {
             let now = Instant::now();
             let dt = now.duration_since(last_time).as_secs_f64().seconds();
@@ -36,39 +39,27 @@ fn main() -> eframe::Result {
             // Pilot input
             while let Ok(last_target) = target_rx.try_recv() {
                 let target: Target = last_target;
+                let vel_target_frd = VelocityFrd::new(target.forward, target.right, 0.mps());
+                let vel_target_ned = vel_target_frd.to_world_frame(&simulator.state.attitude);
 
-                let world_frame_target = simulator
-                    .state
-                    .attitude
-                    .rotate_body_to_world(target.forward, target.right);
-
-                if target.up.0 == 0.0 && previous_pilot_targets.up.0 != 0.0 {
-                    controller
-                        .set_target_down(AxisTarget::Position(simulator.state.position_ned.down()));
+                // If there's no command from the pilot, use Lotier mode to hold position.
+                if target.up.0 == 0.0 {
+                    controller.set_target_down(AxisTarget::Loiter);
                 } else if target.up.0 != 0.0 {
                     controller.set_target_down(AxisTarget::Velocity(-target.up));
                 }
 
                 if target.forward.0 != 0.0 || target.right.0 != 0.0 {
-                    controller.set_target_north(AxisTarget::Velocity(world_frame_target.north()));
-                    controller.set_target_east(AxisTarget::Velocity(world_frame_target.east()));
+                    println!("Setting VELOCITY");
+                    controller.set_target_north(AxisTarget::Velocity(vel_target_ned.north()));
+                    controller.set_target_east(AxisTarget::Velocity(vel_target_ned.east()));
                 } else {
-                    let max_deleceleration = 3.mps2();
-                    let north_vel = simulator.state.velocity_ned.north();
-                    let north_breaking = (north_vel * north_vel.abs()) / (max_deleceleration * 2.0);
-                    controller.set_target_north(AxisTarget::Position(
-                        simulator.state.position_ned.north() + north_breaking * 2.0,
-                    ));
-                    controller.set_target_east(AxisTarget::Position(
-                        simulator.state.position_ned.east()
-                            + simulator.state.velocity_ned.east() * 1.seconds(),
-                    ));
+                    println!("Setting LOTIER");
+                    controller.set_target_north(AxisTarget::Loiter);
+                    controller.set_target_east(AxisTarget::Loiter);
                 }
 
-                // controller.set_target_velocity(world_frame_target);
                 controller.set_yaw_rate_target(target.yaw_rate);
-
-                previous_pilot_targets = target;
             }
 
             std::thread::sleep(Duration::from_millis(10));

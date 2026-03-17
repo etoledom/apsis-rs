@@ -1,7 +1,8 @@
 use std::ops::{Add, Mul, Sub};
 
 use crate::{
-    simulator::types::{vec2::Vec2, vec3::Vec3, velocity_ned::VelocityNED},
+    Quaternion,
+    simulator::types::{vec2::Vec2, vec3::Vec3, velocity_ned::VelocityNed},
     units::{
         acceleration::{Acceleration, AccelerationLiteral},
         angles::Radians,
@@ -46,6 +47,23 @@ impl Acceleration3D {
     fn z(&self) -> Acceleration {
         self.0.z
     }
+    pub fn clamping_x(self, clamp: Acceleration) -> Self {
+        Self::new(self.x().clamping(-clamp, clamp), self.y(), self.z())
+    }
+    pub fn clamping_y(self, clamp: Acceleration) -> Self {
+        Self::new(self.x(), self.y().clamping(-clamp, clamp), self.z())
+    }
+    pub fn clamping_z(self, clamp: Acceleration) -> Self {
+        Self::new(self.x(), self.y(), self.z().clamping(-clamp, clamp))
+    }
+
+    pub fn clamping_by(self, x: Acceleration, y: Acceleration, z: Acceleration) -> Self {
+        Self::new(
+            self.x().clamping(-x, x),
+            self.y().clamping(-y, y),
+            self.z().clamping(-z, z),
+        )
+    }
 }
 
 impl Add for Acceleration3D {
@@ -73,10 +91,10 @@ impl Sub for Acceleration3D {
 }
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug)]
-pub struct BodyFrameAcceleration(Acceleration3D);
+#[derive(Copy, Clone, Debug, Default)]
+pub struct AccelerationFrd(Acceleration3D);
 
-impl BodyFrameAcceleration {
+impl AccelerationFrd {
     pub fn new(forward: Acceleration, right: Acceleration, down: Acceleration) -> Self {
         Self(Acceleration3D::new(forward, right, down))
     }
@@ -92,17 +110,39 @@ impl BodyFrameAcceleration {
     pub fn from_down(down: Acceleration) -> Self {
         Self(Acceleration3D::down(down))
     }
-    pub fn rotate_to_world_frame_by(self, angle: Radians) -> WorldFrameAcceleration {
+    pub fn rotate_to_world_frame_by(self, angle: Radians) -> AccelerationNed {
         let rotated = self.0.rotate(angle);
-        WorldFrameAcceleration::new(rotated.x(), rotated.y(), rotated.z())
+        AccelerationNed::new(rotated.x(), rotated.y(), rotated.z())
+    }
+    pub fn clamping_forward(self, clamp: Acceleration) -> Self {
+        Self(self.0.clamping_x(clamp))
+    }
+    pub fn clamping_right(self, clamp: Acceleration) -> Self {
+        Self(self.0.clamping_y(clamp))
+    }
+    pub fn clamping_down(self, clamp: Acceleration) -> Self {
+        Self(self.0.clamping_z(clamp))
+    }
+    pub fn clamping_by(
+        self,
+        forward: Acceleration,
+        right: Acceleration,
+        down: Acceleration,
+    ) -> Self {
+        Self(self.0.clamping_by(forward, right, down))
+    }
+    pub fn to_world_frame(self, rotation: &Quaternion) -> AccelerationNed {
+        let qv = Quaternion::pure(self.forward().raw(), self.right().raw(), self.down().raw());
+        let rotated = rotation.rotate(qv);
+        AccelerationNed::new(rotated.x.mps2(), rotated.y.mps2(), rotated.z.mps2())
     }
 }
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default)]
-pub struct WorldFrameAcceleration(Acceleration3D);
+pub struct AccelerationNed(Acceleration3D);
 
-impl WorldFrameAcceleration {
+impl AccelerationNed {
     pub fn new(north: Acceleration, east: Acceleration, down: Acceleration) -> Self {
         Self(Acceleration3D::new(north, east, down))
     }
@@ -140,33 +180,29 @@ impl WorldFrameAcceleration {
         Self(Acceleration3D::new(self.0.x(), self.0.y(), down))
     }
     pub fn clamping_north(self, clamp: Acceleration) -> Self {
-        Self(Acceleration3D::new(
-            self.north().clamping(-clamp, clamp),
-            self.east(),
-            self.down(),
-        ))
+        Self(self.0.clamping_x(clamp))
     }
     pub fn clamping_east(self, clamp: Acceleration) -> Self {
-        Self(Acceleration3D::new(
-            self.north(),
-            self.east().clamping(-clamp, clamp),
-            self.down(),
-        ))
+        Self(self.0.clamping_y(clamp))
     }
     pub fn clamping_down(self, clamp: Acceleration) -> Self {
-        Self(Acceleration3D::new(
-            self.north(),
-            self.east(),
-            self.down().clamping(-clamp, clamp),
-        ))
+        Self(self.0.clamping_z(clamp))
+    }
+    pub fn clamping_by(self, north: Acceleration, east: Acceleration, down: Acceleration) -> Self {
+        Self(self.0.clamping_by(north, east, down))
+    }
+    pub fn to_body_frame(self, rotation: &Quaternion) -> AccelerationFrd {
+        let qv = Quaternion::pure(self.north().raw(), self.east().raw(), self.down().raw());
+        let rotated = rotation.conjugate().rotate(qv);
+        AccelerationFrd::new(rotated.x.mps2(), rotated.y.mps2(), rotated.z.mps2())
     }
 }
 
-impl Add for WorldFrameAcceleration {
-    type Output = WorldFrameAcceleration;
+impl Add for AccelerationNed {
+    type Output = AccelerationNed;
 
-    fn add(self, rhs: WorldFrameAcceleration) -> Self::Output {
-        WorldFrameAcceleration(Acceleration3D::new(
+    fn add(self, rhs: AccelerationNed) -> Self::Output {
+        AccelerationNed(Acceleration3D::new(
             self.north() + rhs.north(),
             self.east() + rhs.east(),
             self.down() + rhs.down(),
@@ -174,24 +210,24 @@ impl Add for WorldFrameAcceleration {
     }
 }
 
-impl Sub for WorldFrameAcceleration {
-    type Output = WorldFrameAcceleration;
+impl Sub for AccelerationNed {
+    type Output = AccelerationNed;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        WorldFrameAcceleration(self.0 - rhs.0)
+        AccelerationNed(self.0 - rhs.0)
     }
 }
 
-impl Mul<Seconds> for WorldFrameAcceleration {
-    type Output = VelocityNED;
+impl Mul<Seconds> for AccelerationNed {
+    type Output = VelocityNed;
 
     fn mul(self, time: Seconds) -> Self::Output {
-        VelocityNED::new(self.north() * time, self.east() * time, self.down() * time)
+        VelocityNed::new(self.north() * time, self.east() * time, self.down() * time)
     }
 }
 
-impl From<WorldFrameAcceleration> for Vec3<Acceleration> {
-    fn from(value: WorldFrameAcceleration) -> Self {
+impl From<AccelerationNed> for Vec3<Acceleration> {
+    fn from(value: AccelerationNed) -> Self {
         Vec3 {
             x: value.north(),
             y: value.east(),

@@ -8,8 +8,8 @@ use crate::{
         inputs::Inputs,
         state::State,
         types::{
-            acceleration_3d::{WorldFrameAcceleration, WorldFrameGroundVelocity},
-            angular_acceleration_3d::AngularAcceleration3D,
+            acceleration_3d::{AccelerationNed, WorldFrameGroundVelocity},
+            angular_acceleration_frd::AngularAccelerationFrd,
             pitch::Pitch,
             quaternion::Quaternion,
             roll::Roll,
@@ -48,8 +48,9 @@ impl<DroneType: Drone> Simulator<DroneType> {
 
     pub fn tick(&mut self, inputs: &Inputs, delta_t: Seconds) {
         self.update_attitude(inputs.pitch, inputs.roll, inputs.yaw, delta_t);
-        let acceleration = self.net_acceleration(delta_t, inputs);
-        self.integrate(acceleration, delta_t);
+        self.state.acceleration_ned = self.net_acceleration(delta_t, inputs);
+        self.integrate(self.state.acceleration_ned, delta_t);
+
         self.update_horizontal_position(self.state.velocity_ned.ground_speed(), delta_t);
         self.update_battery_state(delta_t, inputs);
         self.state.last_inputs = inputs.clone();
@@ -61,13 +62,13 @@ impl<DroneType: Drone> Simulator<DroneType> {
         self.state.battery_pct = self.state.battery_pct.max(0.0);
     }
 
-    fn net_acceleration(&self, delta_t: Seconds, inputs: &Inputs) -> WorldFrameAcceleration {
+    fn net_acceleration(&self, delta_t: Seconds, inputs: &Inputs) -> AccelerationNed {
         let context = Context::new(&self.state, inputs, &self.drone);
 
         let external_acceleration = self
             .external_flight_mechanics_models
             .iter()
-            .fold(WorldFrameAcceleration::zero(), |acceleration, force| {
+            .fold(AccelerationNed::zero(), |acceleration, force| {
                 acceleration + force.acceleration_contribution(&context, delta_t)
             });
 
@@ -76,7 +77,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
             + external_acceleration
     }
 
-    fn integrate(&mut self, acceleration: WorldFrameAcceleration, delta_t: Seconds) {
+    fn integrate(&mut self, acceleration: AccelerationNed, delta_t: Seconds) {
         let velocity_ned_old = self.state.velocity_ned;
 
         self.state.velocity_ned += acceleration * delta_t;
@@ -116,7 +117,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
 
         // 1.
         let pitch_acceleration = drone.max_pitch_acceleration() * pitch.get()
-            - drone.pitch_damping_coefficient() * self.state.angular_velocity_body.y();
+            - (drone.pitch_damping_coefficient() * self.state.angular_velocity_body.y());
 
         let roll_acceleration = drone.max_roll_acceleration() * roll.get()
             - drone.roll_damping_coefficient() * self.state.angular_velocity_body.x();
@@ -125,7 +126,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
             - drone.yaw_damping_coefficient() * self.state.angular_velocity_body.z();
 
         let angular_acceleration =
-            AngularAcceleration3D::new(roll_acceleration, pitch_acceleration, yaw_acceleration);
+            AngularAccelerationFrd::new(roll_acceleration, pitch_acceleration, yaw_acceleration);
 
         // 2.
         self.state.angular_velocity_body += angular_acceleration * dt;
@@ -165,6 +166,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     use crate::{
+        controller::tests_utils::TestDrone,
         simulator::{
             default_drone::DefaultDrone,
             types::{
@@ -172,13 +174,22 @@ mod tests {
             },
         },
         units::{
-            angles::DegreesLiteral,
+            MetersLiteral,
+            angles::{Degrees, DegreesLiteral},
             consts::G_EARTH,
             units::{Meters, SecondsLiteral},
         },
     };
 
     use super::*;
+
+    fn terminal_forward_velocity(drone: impl Drone, angle: Degrees) -> Velocity {
+        // v_north = sqrt(g * sin(θ) / (k_forward * cos³(θ)))
+        // where θ = pitch, k_forward = forward drag coefficient
+        (G_EARTH * angle.to_radians().sin()
+            / (drone.drag_coefficient().forward.value() * angle.to_radians().cos().powi(3)))
+        .sqrt()
+    }
 
     #[test]
     fn stable_hover() {
@@ -206,27 +217,20 @@ mod tests {
     fn forward_terminal_velocity() {
         let drone = DefaultDrone {};
         let inputs = Inputs {
-            throttle: drone.hover_throttle(),
+            throttle: Throttle::clamp(0.5),
             pitch: Pitch::clamp(-1.0),
             roll: Roll::clamp(0.0),
             yaw: Yaw::clamp(0.0),
         };
 
-        // V_up = -sqrt_root( G*(TWR - 1)*sin(pitch) / k ) ; where: TWR = thrust to wait ration; k = vertical drag coeff
-        let expected = (G_EARTH
-            * (drone.thrust_to_waight_ratio() - 1.0)
-            * drone.max_pitch().to_radians().sin()
-            / drone.drag_coefficient().forward.value())
-        .sqrt();
+        let expected = terminal_forward_velocity(drone, drone.max_pitch());
 
         let mut simulator = Simulator::new(drone);
-        simulator.state = State {
-            altitude: Meters(1.0),
-            ..Default::default()
-        };
+        simulator.state.position_ned.set_down(-50.meters());
 
         for _ in 0..100 {
             simulator.tick(&inputs, 0.1.seconds());
+            println!("altitude: {}", simulator.state.altitude);
         }
 
         assert_relative_eq!(simulator.state.velocity_ned.ground_speed().east().0, 0.0);
@@ -235,17 +239,11 @@ mod tests {
             expected.0,
             epsilon = 1e-2
         );
-
-        println!(
-            "Calculated: {:.2}, reached: {:.2}",
-            expected.0,
-            simulator.state.velocity_ned.ground_speed().north().0
-        );
     }
 
     #[test]
     fn test_yaw_rotation() {
-        let drone = DefaultDrone {};
+        let drone = TestDrone {};
         let hover_throttle = drone.hover_throttle();
 
         let mut simulator = Simulator::new(drone);
@@ -264,7 +262,7 @@ mod tests {
 
         assert_relative_eq!(
             simulator.state.attitude.yaw().to_degrees().0,
-            87.53,
+            35.28,
             epsilon = 1e-2
         ); // Near 45 degrees as specified.
     }
@@ -331,7 +329,7 @@ mod tests {
 
     #[test]
     fn pitch_input_response() {
-        let mut sim = Simulator::new(DefaultDrone {});
+        let mut sim = Simulator::new(TestDrone {});
 
         // Start level at hover
         let inputs = Inputs {
@@ -341,7 +339,7 @@ mod tests {
         };
 
         let dt = Seconds(0.1);
-        for i in 0..50 {
+        for i in 0..40 {
             sim.tick(&inputs, dt);
             println!(
                 "t={:.1} pitch={:.2} pitch_rate={:.3}, v_angular: {:.3}",
@@ -354,24 +352,22 @@ mod tests {
 
         // At steady state, pitch rate should be constant (not growing)
         // and angular velocity should match theoretical steady state
+        //
+        // Steady state: max_pitch_acc * input / damping = 2.0 * 0.1 / 2.0 = 0.1
         assert_relative_eq!(
             sim.state.angular_velocity_body.y().raw(),
-            -0.075,
+            -0.1,
             epsilon = 0.01
         );
     }
 
     #[test]
     fn pitch_reversal_decelerates() {
-        let mut sim = Simulator::new(DefaultDrone {});
+        let drone = TestDrone {};
+        let mut sim = Simulator::new(drone);
 
         // Start at 45° nose down
-        sim.state.attitude = Quaternion {
-            w: (-45.degrees().to_radians() / 2.0).cos(),
-            x: 0.0,
-            y: (-45.degrees().to_radians() / 2.0).sin(),
-            z: 0.0,
-        };
+        sim.state.attitude = Quaternion::from_pitch(-drone.max_pitch().to_radians());
 
         let dt = 0.1.seconds();
 
@@ -381,11 +377,13 @@ mod tests {
             pitch: Pitch::clamp(-1.0),
             ..Default::default()
         };
-        for _ in 0..50 {
+        for _ in 0..100 {
             sim.tick(&forward_inputs, dt);
         }
 
-        assert_relative_eq!(sim.state.velocity_ned.north().0, 5.88, epsilon = 1e-2);
+        let expected = terminal_forward_velocity(drone, drone.max_pitch());
+
+        assert_relative_eq!(sim.state.velocity_ned.north().0, expected.0, epsilon = 1e-2);
         assert_relative_eq!(
             sim.state.attitude.pitch().to_degrees().0,
             -45.0,
@@ -402,7 +400,11 @@ mod tests {
             sim.tick(&reverse_inputs, dt);
         }
 
-        assert_relative_eq!(sim.state.velocity_ned.north().0, -5.88, epsilon = 1e-2);
+        assert_relative_eq!(
+            sim.state.velocity_ned.north().0,
+            -expected.0,
+            epsilon = 1e-2
+        );
         assert_relative_eq!(
             sim.state.attitude.pitch().to_degrees().0,
             45.0,

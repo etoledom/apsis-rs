@@ -1,6 +1,7 @@
-use std::ops::Mul;
+use std::ops::{Div, Mul};
 
 use crate::units::{
+    Seconds,
     angles::{AngularAcceleration, AngularVelocity},
     units::PerSecond,
 };
@@ -23,5 +24,14 @@ impl Mul<AngularVelocity> for AngularDamping {
 
     fn mul(self, rhs: AngularVelocity) -> Self::Output {
         AngularAcceleration::new(self.raw() * rhs.raw())
+    }
+}
+
+/// 1/s / [rad]/s^2 = s
+impl Div<AngularAcceleration> for AngularDamping {
+    type Output = Seconds;
+
+    fn div(self, rhs: AngularAcceleration) -> Self::Output {
+        Seconds::new(self.raw() / rhs.raw())
     }
 }

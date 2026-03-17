@@ -1,7 +1,7 @@
 use crate::units::{
     Meters, Seconds, Velocity,
     acceleration::Acceleration,
-    angles::{AngularVelocity, Radians},
+    angles::{AngularVelocity, Degrees, Radians},
 };
 
 pub trait RawRepresentable {
@@ -24,7 +24,7 @@ macro_rules! impl_raw_representable {
     };
 }
 
-impl_raw_representable! { Meters Seconds Radians AngularVelocity Velocity Acceleration }
+impl_raw_representable! { Meters Seconds Degrees Radians AngularVelocity Velocity Acceleration }
 
 macro_rules! impl_initializable {
     ($($t:ty)*) => {

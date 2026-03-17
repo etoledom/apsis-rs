@@ -1,17 +1,22 @@
-use std::ops::{AddAssign, Mul, Sub};
+use std::ops::{Add, AddAssign, Mul, Sub};
 
 use crate::{
+    Quaternion,
     simulator::types::{
         acceleration_3d::WorldFrameGroundVelocity, position_ned::PositionNed, vec3::Vec3,
     },
-    units::units::{Seconds, Velocity, VelocityLiteral},
+    units::{
+        traits::RawRepresentable,
+        units::{Seconds, Velocity, VelocityLiteral},
+    },
+    velocity_frd::VelocityFrd,
 };
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct VelocityNED(Vec3<Velocity>);
+pub struct VelocityNed(Vec3<Velocity>);
 
-impl VelocityNED {
+impl VelocityNed {
     pub fn new(north: Velocity, east: Velocity, down: Velocity) -> Self {
         Self(Vec3 {
             x: north,
@@ -20,8 +25,14 @@ impl VelocityNED {
         })
     }
 
-    pub fn zero() -> VelocityNED {
+    pub fn zero() -> Self {
         Self::new(0.mps(), 0.mps(), 0.mps())
+    }
+    pub fn from_north(north: Velocity) -> Self {
+        Self::new(north, 0.mps(), 0.mps())
+    }
+    pub fn from_east(east: Velocity) -> Self {
+        Self::new(0.mps(), east, 0.mps())
     }
     pub fn north(&self) -> Velocity {
         self.0.x
@@ -63,9 +74,22 @@ impl VelocityNED {
     pub fn ground_speed(&self) -> WorldFrameGroundVelocity {
         WorldFrameGroundVelocity::new(self.north(), self.east())
     }
+    pub fn to_body_frame(self, rotation: &Quaternion) -> VelocityFrd {
+        let qv = Quaternion::pure(self.north().raw(), self.east().raw(), self.down().raw());
+        let rotated = rotation.conjugate().rotate(qv);
+        VelocityFrd::new(rotated.x.mps(), rotated.y.mps(), rotated.z.mps())
+    }
 }
 
-impl Mul<Seconds> for VelocityNED {
+impl Add for VelocityNed {
+    type Output = VelocityNed;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        VelocityNed(self.0 + rhs.0)
+    }
+}
+
+impl Mul<Seconds> for VelocityNed {
     type Output = PositionNed;
 
     fn mul(self, time: Seconds) -> Self::Output {
@@ -73,7 +97,7 @@ impl Mul<Seconds> for VelocityNED {
     }
 }
 
-impl AddAssign for VelocityNED {
+impl AddAssign for VelocityNed {
     fn add_assign(&mut self, rhs: Self) {
         self.0.x.0 += rhs.0.x.0;
         self.0.y.0 += rhs.0.y.0;
@@ -81,10 +105,10 @@ impl AddAssign for VelocityNED {
     }
 }
 
-impl Sub for VelocityNED {
-    type Output = VelocityNED;
+impl Sub for VelocityNed {
+    type Output = VelocityNed;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        VelocityNED(self.0 - rhs.0)
+        VelocityNed(self.0 - rhs.0)
     }
 }

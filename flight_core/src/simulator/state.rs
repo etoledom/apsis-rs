@@ -1,8 +1,9 @@
 use crate::{
+    AccelerationNed,
     inputs::Inputs,
     simulator::types::{
-        angular_velocity_3d::AngularVelocity3D, position_ned::PositionNed, quaternion::Quaternion,
-        vec2::Vec2, velocity_ned::VelocityNED,
+        angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed,
+        quaternion::Quaternion, vec2::Vec2, velocity_ned::VelocityNed,
     },
     units::units::{Meters, Velocity},
 };
@@ -11,11 +12,12 @@ use crate::{
 pub struct State {
     pub altitude: Meters,
 
-    pub velocity_ned: VelocityNED,
+    pub velocity_ned: VelocityNed,
     pub position_ned: PositionNed,
+    pub acceleration_ned: AccelerationNed,
 
     pub attitude: Quaternion,
-    pub angular_velocity_body: AngularVelocity3D,
+    pub angular_velocity_body: AngularVelocityFrd,
 
     pub last_inputs: Inputs,
 
@@ -32,6 +34,7 @@ impl Default for State {
             altitude: Default::default(),
             velocity_ned: Default::default(),
             position_ned: Default::default(),
+            acceleration_ned: Default::default(),
             attitude: Default::default(),
             angular_velocity_body: Default::default(),
             last_inputs: Default::default(),

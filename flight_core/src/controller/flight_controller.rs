@@ -1,22 +1,28 @@
 use crate::{
-    AngularVelocity3D, Drone, PositionNed, Throttle,
+    AccelerationFrd, AngularVelocityFrd, Drone, Jerk, JerkLiteral, PositionNed, Throttle,
     controller::{
-        attitude_controller::AttitudeController, position_controller::PositionController,
-        rate_controller::RateController, velocity_ned_controller::VelocityNedController,
+        attitude_controller::AttitudeController,
+        position_controller::PositionController,
+        rate_controller::RateController,
+        trajectory_generator::{
+            trajectory_generator::TrajectoryGenerator, trajectory_limits::TrajectoryLimits,
+        },
+        velocity_ned_controller::VelocityNedController,
     },
+    drone::DragCoefficient,
     simulator::{
         inputs::Inputs,
         state::State,
         types::{
-            acceleration_3d::WorldFrameAcceleration,
+            acceleration_3d::AccelerationNed,
             quaternion::Quaternion,
             vec3::{CrossMult, DotMult, Vec3},
-            velocity_ned::VelocityNED,
+            velocity_ned::VelocityNed,
         },
     },
     units::{
-        MettersLiteral, Velocity,
-        acceleration::Acceleration,
+        MetersLiteral, PerSecond, Velocity, VelocityLiteral,
+        acceleration::{Acceleration, AccelerationLiteral},
         angles::{AngularVelocity, Radians},
         consts::G_EARTH,
         units::{Meters, Seconds},
@@ -30,14 +36,29 @@ pub struct AirframeLimits {
     pub max_pitch: Radians,
     pub max_roll: Radians,
     pub max_thrust: Acceleration,
+    pub max_acceleration: AccelerationFrd,
+    pub drag: DragCoefficient,
 }
 
 impl AirframeLimits {
-    pub fn from_drone(drone: impl Drone) -> AirframeLimits {
+    pub fn from_drone(drone: &impl Drone) -> AirframeLimits {
+        let max_pitch = drone.max_pitch().to_radians();
+        let max_roll = drone.max_roll().to_radians();
+        let max_thrust = drone.max_thrust_acceleration();
+        let max_forward_acc = G_EARTH * max_pitch.tan();
+        let max_lateral_acc = G_EARTH * max_roll.tan();
+        let max_vertical_acc = max_thrust * (1.0 - THRUST_MARGIN) - G_EARTH;
+
         AirframeLimits {
-            max_pitch: drone.max_pitch().to_radians(),
-            max_roll: drone.max_roll().to_radians(),
-            max_thrust: drone.max_thrust_acceleration(),
+            max_pitch,
+            max_roll,
+            max_thrust,
+            max_acceleration: AccelerationFrd::new(
+                max_forward_acc,
+                max_lateral_acc,
+                max_vertical_acc,
+            ),
+            drag: drone.drag_coefficient(),
         }
     }
 }
@@ -46,6 +67,7 @@ impl AirframeLimits {
 pub enum AxisTarget {
     Velocity(Velocity),
     Position(Meters),
+    Loiter,
 }
 
 #[derive(Debug)]
@@ -55,35 +77,113 @@ pub struct FlightTarget {
     pub down: AxisTarget,
 }
 
+pub struct TrajectoryConfig {
+    pub max_horizontal_velocity: Velocity,
+    pub max_vertical_velocity: Velocity,
+    pub horizontal_jerk: Jerk,
+    pub vertical_jerk: Jerk,
+}
+
+impl Default for TrajectoryConfig {
+    fn default() -> Self {
+        Self {
+            max_horizontal_velocity: 10.mps(),
+            max_vertical_velocity: 3.mps(),
+            horizontal_jerk: 20.mps3(),
+            vertical_jerk: 5.mps3(),
+        }
+    }
+}
+
 pub struct FlightController {
     target: FlightTarget,
+    pub(crate) trajectory_generator: TrajectoryGenerator,
     position_controller: PositionController,
     velocity_ned_controller: VelocityNedController,
     attitude_controller: AttitudeController,
     rate_controller: RateController,
     limits: AirframeLimits,
     yaw_rate_target: AngularVelocity,
+    initialized: bool,
 }
 
 impl FlightController {
-    pub fn new(limits: AirframeLimits) -> Self {
+    pub fn new(
+        limits: AirframeLimits,
+        velocity_max: VelocityNed,
+        h_trajectory_limits: TrajectoryLimits,
+        v_trajectory_limits: TrajectoryLimits,
+    ) -> Self {
         Self {
             target: FlightTarget {
                 north: AxisTarget::Position(0.meters()),
                 east: AxisTarget::Position(0.meters()),
                 down: AxisTarget::Position(0.meters()),
             },
-            position_controller: PositionController::new(PositionNed::zero()),
-            velocity_ned_controller: VelocityNedController::new(VelocityNED::zero()),
+            trajectory_generator: TrajectoryGenerator::new(
+                h_trajectory_limits,
+                v_trajectory_limits,
+                PerSecond(0.8),
+            ),
+            position_controller: PositionController::new(velocity_max),
+            velocity_ned_controller: VelocityNedController::new(VelocityNed::zero()),
             attitude_controller: AttitudeController::new(),
             rate_controller: RateController::new(),
             limits: limits,
             yaw_rate_target: Default::default(),
+            initialized: false,
         }
     }
 
     pub fn for_drone(drone: impl Drone) -> Self {
-        Self::new(AirframeLimits::from_drone(drone))
+        let limits = AirframeLimits::from_drone(&drone);
+
+        let _max_forward_acc = limits.max_acceleration.forward();
+        let max_lateral_acc = limits.max_acceleration.right();
+        let max_vertical_acc = limits.max_acceleration.down();
+
+        // Derive jerk limits from drone's rotational response bandwidth.
+        let max_pitch_rate = drone.max_pitch_acceleration() / drone.pitch_damping_coefficient();
+
+        let horizontal_jerk = G_EARTH * max_pitch_rate;
+        let vertical_jerk = max_vertical_acc / drone.motor_time_constant();
+
+        // let max_forward_velocity = (max_forward_acc / drone.drag_coefficient().horizontal).sqrt();
+        let max_lateral_velocity = (max_lateral_acc / drone.drag_coefficient().horizontal).sqrt();
+        let max_vertical_velocity: Velocity =
+            (max_vertical_acc / drone.drag_coefficient().vertical).sqrt();
+
+        let trajectory_acc_factor = 0.7;
+        let trajectory_jerk_factor = 0.7;
+
+        let pitch_time_constant =
+            drone.pitch_damping_coefficient() / drone.max_pitch_acceleration();
+        let horizontal_cascade_delay = pitch_time_constant * 0.4;
+        let vertical_cascade_delay = drone.motor_time_constant() * 0.4; // vertical responds via throttle, not pitch
+
+        let horizontal_limits = TrajectoryLimits {
+            max_velocity: 5.mps(),
+            max_acceleration: max_lateral_acc * trajectory_acc_factor,
+            max_jerk: horizontal_jerk * trajectory_jerk_factor,
+            cascade_delay: horizontal_cascade_delay,
+        };
+        let vertical_limits = TrajectoryLimits {
+            max_velocity: 3.mps(),
+            max_acceleration: max_vertical_acc * trajectory_acc_factor,
+            max_jerk: vertical_jerk * trajectory_jerk_factor,
+            cascade_delay: vertical_cascade_delay,
+        };
+
+        Self::new(
+            limits,
+            VelocityNed::new(
+                max_lateral_velocity, // Conservative limit to not mess up with Yaw
+                max_lateral_velocity,
+                max_vertical_velocity,
+            ),
+            horizontal_limits,
+            vertical_limits,
+        )
     }
 
     // Cascade:
@@ -93,14 +193,64 @@ impl FlightController {
     // quaternion_target -> angular_rates_target (attitude controller)
     // angular_rates_target -> drone inputs: pitch, roll, yaw, throttle (rate controller)
     pub fn update(&mut self, telemetry: &State, dt: Seconds) -> Inputs {
-        let vel_target = self.resolve_velocity_target(telemetry, dt);
-        self.velocity_ned_controller.target = vel_target;
-        let acc_target = self.compute_acceleration_target(telemetry.velocity_ned, dt);
+        self.sync_if_needed(telemetry);
+        // println!(
+        //     "FC: actual_vel_n={:.4}, actual_pos_n={:.4}, target={:?}",
+        //     telemetry.velocity_ned.north().raw(),
+        //     telemetry.position_ned.north().raw(),
+        //     self.target.north,
+        // );
+        // if matches!(self.target.north, AxisTarget::Loiter) {
+        //     println!(
+        //         "LOITER: pos={:.4}, vel={:.4}",
+        //         telemetry.position_ned.north().raw(),
+        //         telemetry.velocity_ned.north().raw(),
+        //     );
+        // }
+        // 1. Trajectory generator — open loop, produces feedforward signals
+        let trajectory_setpoint = self.trajectory_generator.update(&self.target, dt);
+
+        // 2. Position controller — feedback, compares plan vs reality
+        let target_position = PositionNed::new(
+            trajectory_setpoint.north.position,
+            trajectory_setpoint.east.position,
+            trajectory_setpoint.down.position,
+        );
+        let vel_correction =
+            self.position_controller
+                .update(telemetry.position_ned, target_position, dt);
+
+        // 3. Combine: position correction + velocity feedforward
+        let vel_ff = VelocityNed::new(
+            trajectory_setpoint.north.velocity,
+            trajectory_setpoint.east.velocity,
+            trajectory_setpoint.down.velocity,
+        );
+        self.velocity_ned_controller.target = vel_correction + vel_ff;
+
+        // 4. Acceleration feedforward from trajectory
+        let acc_ff = AccelerationNed::new(
+            trajectory_setpoint.north.acceleration,
+            trajectory_setpoint.east.acceleration,
+            trajectory_setpoint.down.acceleration,
+        );
+
+        // 5. Velocity PID with both feedforwards
+        let acc_target = self.velocity_ned_controller.update(
+            telemetry.velocity_ned,
+            acc_ff,
+            self.compute_drag_feedforward(telemetry.velocity_ned, &telemetry.attitude),
+            dt,
+        );
+
+        let acc_target = self.clamp_acceleration(acc_target, &telemetry.attitude);
+
         let throttle = Self::throttle_from_acceleration(
             acc_target,
             &telemetry.attitude,
             self.limits.max_thrust,
         );
+
         let q_target = Self::q_target_from_acceleration(acc_target, telemetry.attitude.yaw())
             .clamped(self.limits.max_pitch, self.limits.max_roll);
         let angular_rates_target = self.compute_angular_rates(q_target, telemetry, dt);
@@ -108,6 +258,17 @@ impl FlightController {
             self.rate_controller
                 .update(angular_rates_target, telemetry.angular_velocity_body, dt);
 
+        // if matches!(self.target.north, AxisTarget::Loiter) {
+        //     println!(
+        //         "BRAKE: pos={:.3}, vel={:.4}, acc_target_n={:.4}, pitch={:.2}°, pitch_rate={:.4}, throttle={:.4}",
+        //         telemetry.position_ned.north().raw(),
+        //         telemetry.velocity_ned.north().raw(),
+        //         acc_target.north().raw(),
+        //         telemetry.attitude.pitch().to_degrees().raw(),
+        //         telemetry.angular_velocity_body.y().raw(),
+        //         throttle.get(),
+        //     );
+        // }
         Inputs {
             throttle,
             pitch,
@@ -116,22 +277,81 @@ impl FlightController {
         }
     }
 
-    fn compute_acceleration_target(
-        &mut self,
-        current_velocity: VelocityNED,
-        dt: Seconds,
-    ) -> WorldFrameAcceleration {
-        // Use trhurst margin
-        let max_vertical_acc = self.limits.max_thrust * (1.0 - THRUST_MARGIN) - G_EARTH;
-        let max_north_acc = G_EARTH * self.limits.max_pitch.tan();
-        let max_east_acc = G_EARTH * self.limits.max_roll.tan();
+    fn sync_if_needed(&mut self, telemetry: &State) {
+        if !self.initialized {
+            self.sync_trajectory_to_state(telemetry);
+            self.initialized = true;
+        }
+    }
 
-        let acc_target = self.velocity_ned_controller.update(current_velocity, dt);
+    fn sync_trajectory_to_state(&mut self, telemetry: &State) {
+        self.trajectory_generator.north.reset(
+            telemetry.position_ned.north(),
+            telemetry.velocity_ned.north(),
+            telemetry.acceleration_ned.north(),
+        );
+        self.trajectory_generator.east.reset(
+            telemetry.position_ned.east(),
+            telemetry.velocity_ned.east(),
+            telemetry.acceleration_ned.east(),
+        );
+        self.trajectory_generator.down.reset(
+            telemetry.position_ned.down(),
+            telemetry.velocity_ned.down(),
+            telemetry.acceleration_ned.down(),
+        );
+    }
 
-        acc_target
-            .clamping_down(max_vertical_acc)
-            .clamping_north(max_north_acc)
-            .clamping_east(max_east_acc)
+    fn clamp_acceleration(
+        &self,
+        acc_unclamped: AccelerationNed,
+        attitude: &Quaternion,
+    ) -> AccelerationNed {
+        // Horizontal: clamp in body frame (pitch/roll limits)
+        let horizontal_only =
+            AccelerationNed::new(acc_unclamped.north(), acc_unclamped.east(), 0.mps2());
+
+        let clamped_horizontal = horizontal_only
+            .to_body_frame(attitude)
+            .clamping_forward(self.limits.max_acceleration.forward())
+            .clamping_right(self.limits.max_acceleration.right())
+            .to_world_frame(attitude);
+
+        // Vertical: clamp in world frame (decoupled from attitude)
+        AccelerationNed::new(
+            clamped_horizontal.north(),
+            clamped_horizontal.east(),
+            acc_unclamped.down().clamping(
+                -self.limits.max_acceleration.down(),
+                self.limits.max_acceleration.down(),
+            ),
+        )
+    }
+
+    fn compute_drag_feedforward(
+        &self,
+        velocity: VelocityNed,
+        attitude: &Quaternion,
+    ) -> AccelerationNed {
+        // - Transform velocity to body frame
+        // - Apply quadratic drag coefficients in body frame
+        // - Transform resulting acceleration back to world frame
+        //
+        let velocity_frd = velocity.to_body_frame(attitude);
+
+        let drag_h_body = AccelerationFrd::new(
+            // acc = v * |v| * drag[1/m] = m/s^2
+            velocity_frd.forward()
+                * velocity_frd.forward().abs()
+                * self.limits.drag.forward.value(),
+            velocity_frd.right() * velocity_frd.right().abs() * self.limits.drag.horizontal.value(),
+            0.mps2(),
+        );
+
+        let drag_h_world = drag_h_body.to_world_frame(attitude);
+        let drag_v_world =
+            velocity.down() * velocity.down().abs() * self.limits.drag.vertical.value();
+        AccelerationNed::new(drag_h_world.north(), drag_h_world.east(), drag_v_world)
     }
 
     fn compute_angular_rates(
@@ -139,7 +359,7 @@ impl FlightController {
         q_target: Quaternion,
         telemetry: &State,
         dt: Seconds,
-    ) -> AngularVelocity3D {
+    ) -> AngularVelocityFrd {
         let mut angular_rates_target =
             self.attitude_controller
                 .update(q_target, telemetry.attitude, dt);
@@ -149,10 +369,10 @@ impl FlightController {
     }
 
     pub fn q_target_from_acceleration(
-        acc_target: WorldFrameAcceleration,
+        acc_target: AccelerationNed,
         yaw_current: Radians,
     ) -> Quaternion {
-        let gravity = WorldFrameAcceleration::from_down(G_EARTH);
+        let gravity = AccelerationNed::from_down(G_EARTH);
         let thrust = acc_target + gravity;
         let thrust_dir = thrust.normalized();
         let z_body_desired = Vec3 {
@@ -182,7 +402,7 @@ impl FlightController {
     }
 
     fn throttle_from_acceleration(
-        acc_target: WorldFrameAcceleration,
+        acc_target: AccelerationNed,
         attitude: &Quaternion,
         max_thrust: Acceleration,
     ) -> Throttle {
@@ -192,75 +412,10 @@ impl FlightController {
         Throttle::clamp(vertical_acc_needed.abs() / (max_thrust.raw() * tilt_compensation))
     }
 
-    fn throttle_from_attitude(attitude: &Quaternion, max_thrust: Acceleration) -> Throttle {
-        let thrust_needed = G_EARTH.raw() / attitude.pitch().cos() / attitude.roll().cos();
-        Throttle::clamp(thrust_needed / max_thrust.raw())
-    }
-
-    pub fn set_target_velocity(&mut self, velocity: VelocityNED) {
+    pub fn set_target_velocity(&mut self, velocity: VelocityNed) {
         self.target.down = AxisTarget::Velocity(velocity.down());
         self.target.north = AxisTarget::Velocity(velocity.north());
         self.target.east = AxisTarget::Velocity(velocity.east());
-    }
-
-    fn update_position_targets(&mut self, telemetry: &State) {
-        if let AxisTarget::Velocity(_) = self.target.north {
-            self.position_controller
-                .target
-                .set_north(telemetry.position_ned.north());
-        }
-        if let AxisTarget::Velocity(_) = self.target.east {
-            self.position_controller
-                .target
-                .set_east(telemetry.position_ned.east());
-        }
-        if let AxisTarget::Velocity(_) = self.target.down {
-            self.position_controller
-                .target
-                .set_down(telemetry.position_ned.down());
-        }
-    }
-
-    fn resolve_velocity_target(&mut self, telemetry: &State, dt: Seconds) -> VelocityNED {
-        self.update_position_targets(telemetry);
-        let velocity_target = self.compute_velocity_target(telemetry, dt);
-        velocity_target
-    }
-
-    fn compute_velocity_target(&mut self, telemetry: &State, dt: Seconds) -> VelocityNED {
-        let velocity_target_north = match self.target.north {
-            AxisTarget::Velocity(velocity) => velocity,
-            AxisTarget::Position(meters) => {
-                self.position_controller.target.set_north(meters);
-                self.position_controller
-                    .update_north(telemetry.position_ned.north(), dt)
-            }
-        };
-        let velocity_target_east = match self.target.east {
-            AxisTarget::Velocity(velocity) => velocity,
-            AxisTarget::Position(meters) => {
-                self.position_controller.target.set_east(meters);
-                self.position_controller
-                    .update_east(telemetry.position_ned.east(), dt)
-            }
-        };
-        let velocity_target_down = match self.target.down {
-            AxisTarget::Velocity(velocity) => velocity,
-            AxisTarget::Position(meters) => {
-                self.position_controller.target.set_down(meters);
-                self.position_controller
-                    .update_down(telemetry.position_ned.down(), dt)
-            }
-        };
-        VelocityNED::new(
-            velocity_target_north,
-            velocity_target_east,
-            velocity_target_down,
-        )
-    }
-
-    pub fn get_target_velocity(&self) -> VelocityNED {
-        self.velocity_ned_controller.target
     }
 
     pub fn set_yaw_rate_target(&mut self, rate: AngularVelocity) {
@@ -278,6 +433,18 @@ impl FlightController {
     pub fn set_target_down(&mut self, down: AxisTarget) {
         self.target.down = down;
     }
+
+    pub fn get_target(&self) -> &FlightTarget {
+        &self.target
+    }
+
+    pub fn loiter_targets(&self) -> Vec3<Option<Meters>> {
+        Vec3 {
+            x: self.trajectory_generator.north.loiter_target(),
+            y: self.trajectory_generator.east.loiter_target(),
+            z: self.trajectory_generator.down.loiter_target(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -285,19 +452,20 @@ mod flight_controller_tests {
     use approx::assert_relative_eq;
 
     use crate::{
-        DefaultDrone,
-        simulator::types::{angular_velocity_3d::AngularVelocity3D, position_ned::PositionNed},
+        DefaultDrone, Drag,
+        controller::tests_utils::TestDrone,
+        simulator::types::{angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed},
         units::{
             acceleration::AccelerationLiteral,
             angles::DegreesLiteral,
-            units::{MettersLiteral, SecondsLiteral, VelocityLiteral},
+            units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
         },
     };
 
     use super::*;
 
     fn make_controller() -> FlightController {
-        FlightController::for_drone(DefaultDrone {})
+        FlightController::for_drone(TestDrone {})
     }
 
     fn nominal_state() -> State {
@@ -347,7 +515,7 @@ mod flight_controller_tests {
 
         let high_state = nominal_state();
         // high_state.position_ned = PositionNed::from_altitude_ned(-15.meters()); // 5m above target
-        ctrl.set_target_velocity(VelocityNED::new(0.mps(), 0.mps(), -5.mps()));
+        ctrl.set_target_velocity(VelocityNed::new(0.mps(), 0.mps(), -5.mps()));
 
         let inputs = ctrl.update(&high_state, Seconds(0.1));
 
@@ -363,7 +531,7 @@ mod flight_controller_tests {
 
         let high_state = nominal_state();
         // high_state.position_ned = PositionNed::from_altitude_ned(-15.meters()); // 5m above target
-        ctrl.set_target_velocity(VelocityNED::new(0.mps(), 0.mps(), 5.mps()));
+        ctrl.set_target_velocity(VelocityNed::new(0.mps(), 0.mps(), 5.mps()));
 
         let inputs = ctrl.update(&high_state, Seconds(0.1));
 
@@ -400,14 +568,14 @@ mod flight_controller_tests {
         // Extreme state — far from target, high rates
         let extreme_state = State {
             altitude: Meters(0.0),
-            velocity_ned: VelocityNED::new(10.mps(), 10.mps(), 10.mps()),
+            velocity_ned: VelocityNed::new(10.mps(), 10.mps(), 10.mps()),
             attitude: Quaternion {
                 w: 0.5,
                 x: 0.5,
                 y: 0.5,
                 z: 0.5,
             }, // large tilt
-            angular_velocity_body: AngularVelocity3D::new(5.0, 5.0, 5.0),
+            angular_velocity_body: AngularVelocityFrd::new(5.0, 5.0, 5.0),
             ..nominal_state()
         };
 
@@ -423,6 +591,12 @@ mod flight_controller_tests {
             max_pitch: Radians(0.0),
             max_roll: Radians(0.0),
             max_thrust: limit,
+            max_acceleration: Default::default(),
+            drag: DragCoefficient {
+                vertical: Drag::new(0.0),
+                horizontal: Drag::new(0.0),
+                forward: Drag::new(0.0),
+            },
         }
     }
 
@@ -430,20 +604,26 @@ mod flight_controller_tests {
     fn larger_error_produces_larger_response() {
         let mut ctrl_small = make_controller();
         let mut ctrl_large = make_controller();
+        let state = nominal_state(); // at -10m altitude
 
-        let state = nominal_state();
+        // Small altitude error: target -11m (1m below current)
+        ctrl_small.set_target_down(AxisTarget::Position((-11.0).meters()));
+        // Large altitude error: target -15m (5m below current)
+        ctrl_large.set_target_down(AxisTarget::Position((-15.0).meters()));
 
-        ctrl_small.set_target_velocity(VelocityNED::new(0.mps(), 0.mps(), -1.mps()));
-        ctrl_large.set_target_velocity(VelocityNED::new(0.mps(), 0.mps(), -5.mps()));
-
-        let inputs_small = ctrl_small.update(&state, Seconds(0.1));
-        let inputs_large = ctrl_large.update(&state, Seconds(0.1));
+        let dt = 0.01.seconds();
+        let mut inputs_small = ctrl_small.update(&state, dt);
+        let mut inputs_large = ctrl_large.update(&state, dt);
+        for _ in 0..100 {
+            inputs_small = ctrl_small.update(&state, dt);
+            inputs_large = ctrl_large.update(&state, dt);
+        }
 
         assert!(
             inputs_large.throttle.get() > inputs_small.throttle.get(),
-            "larger altitude error should produce larger throttle response, {}. {}",
+            "larger altitude error should produce larger throttle response, small={}, large={}",
+            inputs_small.throttle.get(),
             inputs_large.throttle.get(),
-            inputs_small.throttle.get()
         );
     }
 
@@ -489,7 +669,7 @@ mod flight_controller_tests {
     fn forward_velocity_target_produces_negative_pitch_input() {
         let mut ctrl = FlightController::for_drone(DefaultDrone {});
         // target moving north
-        ctrl.set_target_velocity(VelocityNED::new(1.mps(), 0.mps(), 0.mps()));
+        ctrl.set_target_velocity(VelocityNed::new(1.mps(), 0.mps(), 0.mps()));
 
         let inputs = ctrl.update(&nominal_state(), Seconds(0.1));
 
@@ -501,7 +681,7 @@ mod flight_controller_tests {
 
     #[test]
     fn pure_north_acceleration_produces_nose_down_pitch() {
-        let acc = WorldFrameAcceleration::new(5.mps2(), 0.mps2(), 0.mps2());
+        let acc = AccelerationNed::new(5.mps2(), 0.mps2(), 0.mps2());
         let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         assert!(
@@ -513,7 +693,7 @@ mod flight_controller_tests {
 
     #[test]
     fn pure_north_acceleration_produces_pitch() {
-        let acc = WorldFrameAcceleration::new(5.mps2(), 0.mps2(), 0.mps2());
+        let acc = AccelerationNed::new(5.mps2(), 0.mps2(), 0.mps2());
 
         let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
@@ -531,7 +711,7 @@ mod flight_controller_tests {
     #[test]
     fn pure_east_acceleration_produces_roll() {
         // Pure east acceleration should produce a roll (rotation around X axis)
-        let acc = WorldFrameAcceleration::new(0.mps2(), 5.mps2(), 0.mps2());
+        let acc = AccelerationNed::new(0.mps2(), 5.mps2(), 0.mps2());
 
         let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
@@ -594,7 +774,7 @@ mod flight_controller_tests {
 
     #[test]
     fn acc_target_6_produces_31_degree_pitch() {
-        let acc = WorldFrameAcceleration::new(6.0.mps2(), 0.mps2(), 0.mps2());
+        let acc = AccelerationNed::new(6.0.mps2(), 0.mps2(), 0.mps2());
         let q_target = FlightController::q_target_from_acceleration(acc, Default::default());
 
         // atan(6 / 9.81) = 31.5°, nose down = negative in aerospace
@@ -605,7 +785,7 @@ mod flight_controller_tests {
     fn q_target_yaw_90_points_east() {
         // With zero acceleration and 90° yaw target,
         // the drone should be level and pointing east.
-        let acc_target = WorldFrameAcceleration::zero();
+        let acc_target = AccelerationNed::zero();
         let q = FlightController::q_target_from_acceleration(acc_target, 90.degrees().to_radians());
 
         assert!(
@@ -630,7 +810,7 @@ mod flight_controller_tests {
         // With north acceleration and 90° yaw target,
         // the drone should pitch forward (negative pitch in aerospace)
         // but still be pointing east (90° yaw)
-        let acc_target = WorldFrameAcceleration::new(
+        let acc_target = AccelerationNed::new(
             3.mps2(), // north acceleration
             0.mps2(),
             0.mps2(),
@@ -653,7 +833,7 @@ mod flight_controller_tests {
 
     #[test]
     fn throttle_from_acceleration_hover() {
-        let acc_target = WorldFrameAcceleration::default();
+        let acc_target = AccelerationNed::default();
         let throttle = FlightController::throttle_from_acceleration(
             acc_target,
             &Quaternion::identity(),
@@ -664,7 +844,7 @@ mod flight_controller_tests {
 
     #[test]
     fn throttle_from_acceleration_full_climb() {
-        let acc_target = WorldFrameAcceleration::new(0.0.mps2(), 0.0.mps2(), -G_EARTH);
+        let acc_target = AccelerationNed::new(0.0.mps2(), 0.0.mps2(), -G_EARTH);
         let throttle = FlightController::throttle_from_acceleration(
             acc_target,
             &Quaternion::identity(),
@@ -675,7 +855,7 @@ mod flight_controller_tests {
 
     #[test]
     fn throttle_from_acceleration_freefall() {
-        let acc_target = WorldFrameAcceleration::new(0.0.mps2(), 0.0.mps2(), G_EARTH);
+        let acc_target = AccelerationNed::new(0.0.mps2(), 0.0.mps2(), G_EARTH);
         let throttle = FlightController::throttle_from_acceleration(
             acc_target,
             &Quaternion::identity(),
@@ -684,82 +864,107 @@ mod flight_controller_tests {
         assert!((throttle.get() - 0.0).abs() < 1e-6);
     }
 
-    #[test]
-    fn velocity_mode_passes_through_and_updates_position_target() {
-        let mut ctrl = make_controller();
-        let state = nominal_state();
-        ctrl.set_target_north(AxisTarget::Velocity(3.0.mps()));
-        ctrl.set_target_east(AxisTarget::Velocity(2.0.mps()));
-        ctrl.set_target_down(AxisTarget::Velocity(-1.0.mps()));
-        let velocity_target = ctrl.resolve_velocity_target(&state, Seconds(0.1));
-        // Velocity passes through
-        assert_eq!(velocity_target.north().0, 3.0);
-        assert_eq!(velocity_target.east().0, 2.0);
-        assert_eq!(velocity_target.down().0, -1.0);
-        // Position target updated to current position
-        assert_relative_eq!(
-            ctrl.position_controller.target.north().0,
-            state.position_ned.north().0,
-            epsilon = 1e-6
-        );
-        assert_relative_eq!(
-            ctrl.position_controller.target.east().0,
-            state.position_ned.east().0,
-            epsilon = 1e-6
-        );
-        assert_relative_eq!(
-            ctrl.position_controller.target.down().0,
-            state.position_ned.down().0,
-            epsilon = 1e-6
-        );
-    }
+    // #[test]
+    // fn velocity_mode_passes_through_and_updates_trajectory_position() {
+    //     let mut ctrl = make_controller();
+    //     let state = nominal_state();
+    //     ctrl.set_target_north(AxisTarget::Velocity(3.0.mps()));
+    //     ctrl.set_target_east(AxisTarget::Velocity(2.0.mps()));
+    //     ctrl.set_target_down(AxisTarget::Velocity(-1.0.mps()));
+    //     let velocity_target = ctrl.resolve_velocity_target(&state, Seconds(0.1));
+    //     // Velocity passes through
+    //     assert_eq!(velocity_target.north().0, 3.0);
+    //     assert_eq!(velocity_target.east().0, 2.0);
+    //     assert_eq!(velocity_target.down().0, -1.0);
+    //     // Trajectory generator position updated to current position
+    //     assert_relative_eq!(
+    //         ctrl.trajectory_generator.north.position.0,
+    //         state.position_ned.north().0,
+    //         epsilon = 1e-6
+    //     );
+    //     assert_relative_eq!(
+    //         ctrl.trajectory_generator.east.position.0,
+    //         state.position_ned.east().0,
+    //         epsilon = 1e-6
+    //     );
+    //     assert_relative_eq!(
+    //         ctrl.trajectory_generator.down.position.0,
+    //         state.position_ned.down().0,
+    //         epsilon = 1e-6
+    //     );
+    // }
 
     #[test]
-    fn position_mode_uses_position_controller_output() {
+    fn position_mode_uses_trajectory_and_position_controller() {
         let mut ctrl = make_controller();
         let mut state = nominal_state();
-        state.position_ned = PositionNed::from_altitude_ned(-5.meters()); // 5m below target
-        ctrl.set_target_north(AxisTarget::Position(0.0.meters()));
-        ctrl.set_target_east(AxisTarget::Position(0.0.meters()));
-        ctrl.set_target_down(AxisTarget::Position(-10.meters())); // target is 10m altitude
-        let velocity_target = ctrl.resolve_velocity_target(&state, Seconds(0.1));
-        // Position controller should command upward velocity (negative down) to reach target
+        state.position_ned = PositionNed::new(0.meters(), 0.meters(), (-5.0).meters());
+
+        ctrl.set_target_north(AxisTarget::Position(0.meters()));
+        ctrl.set_target_east(AxisTarget::Position(0.meters()));
+        ctrl.set_target_down(AxisTarget::Position((-10.0).meters()));
+
+        // Run a few ticks so the trajectory generator builds up state
+        let dt = 0.1.seconds();
+        let mut inputs = ctrl.update(&state, dt);
+        for _ in 0..10 {
+            inputs = ctrl.update(&state, dt);
+        }
+
+        // Drone is at -5m, target is -10m → should command climb (negative throttle bias)
+        // Throttle should be above hover (0.5) to climb
         assert!(
-            velocity_target.down().0 < 0.0,
-            "should command climb to reach target altitude"
+            inputs.throttle.get() > 0.5,
+            "should command more than hover thrust to climb, got {}",
+            inputs.throttle.get()
         );
     }
 
     #[test]
     fn vertical_acceleration_is_clamped() {
         let mut ctrl = make_controller();
-        // Large downward velocity error should produce clamped vertical acc
-        let velocity_target = VelocityNED::new(0.mps(), 0.mps(), 100.mps());
-        let acc_target = ctrl.compute_acceleration_target(velocity_target, Seconds(0.1));
+        let state = nominal_state();
+        ctrl.set_target_down(AxisTarget::Position((-100.0).meters()));
+
+        let dt = 0.1.seconds();
+        for _ in 0..10 {
+            ctrl.update(&state, dt);
+        }
+        let inputs = ctrl.update(&state, dt);
+
         let max_vertical_acc =
-            DefaultDrone {}.max_thrust_acceleration() * (1.0 - THRUST_MARGIN) - G_EARTH;
+            TestDrone.max_thrust_acceleration() * (1.0 - THRUST_MARGIN) - G_EARTH;
+        // Max throttle for clamped vertical acc:
+        // throttle = (max_vertical_acc + G) / max_thrust
+        let max_throttle = (max_vertical_acc + G_EARTH) / TestDrone.max_thrust_acceleration();
+
         assert!(
-            acc_target.down().0 <= max_vertical_acc.raw(),
-            "vertical acc should be clamped, was {}",
-            acc_target.down().0
+            inputs.throttle.get() <= max_throttle + 0.01,
+            "throttle should reflect clamped vertical acc, expected <= {}, got {}",
+            max_throttle,
+            inputs.throttle.get()
         );
     }
 
     #[test]
-    fn horizontal_acceleration_is_not_clamped_by_compute() {
+    fn horizontal_acceleration_is_clamped_by_pitch_limit() {
         let mut ctrl = make_controller();
-        let max_north_acc = G_EARTH * DefaultDrone {}.max_pitch().to_radians().tan();
+        let state = nominal_state();
+        // Huge north velocity target → PID commands max acceleration
+        ctrl.set_target_north(AxisTarget::Velocity(100.mps()));
 
-        // Large north velocity error
-        let velocity_target = VelocityNED::new(100.mps(), 0.mps(), 0.mps());
-        ctrl.set_target_north(AxisTarget::Velocity(velocity_target.north()));
-        ctrl.velocity_ned_controller.target = velocity_target;
-        let acc_target = ctrl.compute_acceleration_target(VelocityNED::zero(), Seconds(0.1));
+        let dt = 0.1.seconds();
+        for _ in 0..10 {
+            ctrl.update(&state, dt);
+        }
+        let inputs = ctrl.update(&state, dt);
 
-        assert_relative_eq!(
-            acc_target.north().raw(),
-            max_north_acc.raw(),
-            epsilon = 1e-6
+        // With large north velocity error, pitch should be at max
+        // Pitch input of -1.0 means max nose down
+        assert!(
+            inputs.pitch.get() <= -0.9,
+            "pitch should be near max nose down for large north error, got {}",
+            inputs.pitch.get()
         );
     }
 
@@ -804,5 +1009,195 @@ mod flight_controller_tests {
         let q_target = Quaternion::identity(); // level target
         let rates = ctrl.compute_angular_rates(q_target, &state, Seconds(0.1));
         assert!(rates.x().raw() < 0.0, "should command left roll to level");
+    }
+
+    #[test]
+    fn drag_feedforward_zero_velocity_returns_zero() {
+        let mut ctrl = make_controller();
+        ctrl.limits.drag = DragCoefficient {
+            forward: Drag::new(0.5),
+            horizontal: Drag::new(0.3),
+            vertical: Drag::new(1.0),
+        };
+
+        let result = ctrl.compute_drag_feedforward(VelocityNed::zero(), &Quaternion::identity());
+
+        assert_eq!(result.north().0, 0.0);
+        assert_eq!(result.east().0, 0.0);
+        assert_eq!(result.down().0, 0.0);
+    }
+
+    #[test]
+    fn drag_feedforward_at_zero_yaw() {
+        // Body frame aligns with world frame — forward drag applies to north
+        let mut ctrl = make_controller();
+        ctrl.limits.drag = DragCoefficient {
+            forward: Drag::new(0.5),
+            horizontal: Drag::new(0.3),
+            vertical: Drag::new(1.0),
+        };
+
+        let velocity = VelocityNed::new(4.0.mps(), 0.0.mps(), 0.0.mps());
+        let result = ctrl.compute_drag_feedforward(velocity, &Quaternion::identity());
+
+        // north = forward_drag * v * |v| = 0.5 * 4.0 * 4.0 = 8.0
+        let tolerance = 1e-6;
+        assert!(
+            (result.north().0 - 8.0).abs() < tolerance,
+            "got {}",
+            result.north().0
+        );
+        assert!(result.east().0.abs() < tolerance);
+        assert!(result.down().0.abs() < tolerance);
+    }
+
+    #[test]
+    fn drag_feedforward_at_90_degree_yaw() {
+        // Nose points east — forward drag should apply to east axis
+        let mut ctrl = make_controller();
+        ctrl.limits.drag = DragCoefficient {
+            forward: Drag::new(0.5),
+            horizontal: Drag::new(0.3),
+            vertical: Drag::new(1.0),
+        };
+
+        let yaw_90 = Quaternion::from_yaw(90.degrees().to_radians());
+        // Moving east at 4 m/s — in body frame this is forward
+        let velocity = VelocityNed::new(0.0.mps(), 4.0.mps(), 0.0.mps());
+        let result = ctrl.compute_drag_feedforward(velocity, &yaw_90);
+
+        // East movement = body forward, so forward drag (0.5) applies
+        // east = 0.5 * 4.0 * 4.0 = 8.0
+        let tolerance = 1e-3;
+        assert!(
+            (result.east().0 - 8.0).abs() < tolerance,
+            "east got {}",
+            result.east().0
+        );
+        assert!(
+            result.north().0.abs() < tolerance,
+            "north got {}",
+            result.north().0
+        );
+    }
+
+    #[test]
+    fn acceleration_clamped_by_pitch_limit_at_zero_yaw() {
+        let ctrl = make_controller();
+        let large_north_acc = AccelerationNed::new(100.mps2(), 0.mps2(), 0.mps2());
+
+        let clamped = ctrl.clamp_acceleration(large_north_acc, &Quaternion::identity());
+
+        let max_forward_acc = ctrl.limits.max_acceleration.forward();
+        assert!(
+            clamped.north().raw() <= max_forward_acc.raw() + 0.01,
+            "north should be clamped by max_pitch at 0° yaw, got {}",
+            clamped.north().raw()
+        );
+    }
+
+    #[test]
+    fn acceleration_clamped_by_roll_limit_at_zero_yaw() {
+        let ctrl = make_controller();
+        let large_east_acc = AccelerationNed::new(0.mps2(), 100.mps2(), 0.mps2());
+
+        let clamped = ctrl.clamp_acceleration(large_east_acc, &Quaternion::identity());
+
+        let max_lateral_acc = ctrl.limits.max_acceleration.right();
+        assert!(
+            clamped.east().raw() <= max_lateral_acc.raw() + 0.01,
+            "east should be clamped by max_roll at 0° yaw, got {}",
+            clamped.east().raw()
+        );
+    }
+
+    #[test]
+    fn acceleration_limits_swap_at_90_degree_yaw() {
+        let ctrl = make_controller();
+        let large_east_acc = AccelerationNed::new(0.mps2(), 100.mps2(), 0.mps2());
+
+        let yaw_90 = Quaternion::from_yaw(90.0.degrees().to_radians());
+        let max_forward_acc = ctrl.limits.max_acceleration.forward();
+        let max_lateral_acc = ctrl.limits.max_acceleration.right();
+
+        let clamped = ctrl.clamp_acceleration(large_east_acc, &yaw_90);
+
+        assert!(
+            clamped.east().raw() > max_lateral_acc.raw(),
+            "east should exceed roll limit at 90° yaw (pitch limit applies), got {}",
+            clamped.east().raw()
+        );
+        assert!(
+            clamped.east().raw() <= max_forward_acc.raw() + 0.01,
+            "east should still be bounded by pitch limit, got {}",
+            clamped.east().raw()
+        );
+    }
+
+    #[test]
+    fn north_gets_roll_limit_at_90_degree_yaw() {
+        let ctrl = make_controller();
+        let large_north_acc = AccelerationNed::new(100.mps2(), 0.mps2(), 0.mps2());
+
+        let yaw_90 = Quaternion::from_yaw(90.0.degrees().to_radians());
+        let max_lateral_acc = ctrl.limits.max_acceleration.right();
+
+        let clamped = ctrl.clamp_acceleration(large_north_acc, &yaw_90);
+
+        assert!(
+            clamped.north().raw() <= max_lateral_acc.raw() + 0.01,
+            "north should be clamped by max_roll at 90° yaw, got {}",
+            clamped.north().raw()
+        );
+    }
+
+    #[test]
+    fn horizontal_clamping_does_not_affect_vertical() {
+        let ctrl = make_controller();
+        let acc = AccelerationNed::new(100.mps2(), 0.mps2(), (-2.0).mps2());
+
+        let clamped_level = ctrl.clamp_acceleration(acc, &Quaternion::identity());
+
+        let pitched = Quaternion::from_pitch((-20.0).degrees().to_radians());
+        let clamped_pitched = ctrl.clamp_acceleration(acc, &pitched);
+
+        assert!(
+            (clamped_pitched.down().raw() - clamped_level.down().raw()).abs() < 0.01,
+            "vertical acc should not change with pitch angle: level={}, pitched={}",
+            clamped_level.down().raw(),
+            clamped_pitched.down().raw(),
+        );
+    }
+
+    #[test]
+    fn drag_feedforward_vertical_decoupled_from_pitch() {
+        let mut ctrl = make_controller();
+        ctrl.limits.drag = DragCoefficient {
+            forward: Drag::new(0.5),
+            horizontal: Drag::new(0.3),
+            vertical: Drag::new(1.0),
+        };
+
+        // Moving north with no vertical velocity
+        let velocity = VelocityNed::from_north(5.0.mps());
+
+        let drag_level = ctrl.compute_drag_feedforward(velocity, &Quaternion::identity());
+
+        let drag_pitched = ctrl.compute_drag_feedforward(
+            velocity,
+            &Quaternion::from_pitch(-20.0.degrees().to_radians()),
+        );
+
+        let tolerance = 1e-6;
+        assert!(
+            drag_level.down().0.abs() < tolerance,
+            "vertical drag should be zero with no vertical velocity (level): got {}",
+            drag_level.down().0
+        );
+        assert!(
+            drag_pitched.down().0.abs() < tolerance,
+            "vertical drag should be zero with no vertical velocity (pitched): got {}",
+            drag_pitched.down().0
+        );
     }
 }

@@ -7,21 +7,31 @@ use std::{
 use crate::units::{
     acceleration::Acceleration,
     angles::{Degrees, Radians},
+    traits::RawRepresentable,
 };
 
 #[repr(transparent)]
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Seconds(pub f64);
 
 impl Seconds {
+    pub fn new(value: impl Into<f64>) -> Self {
+        Self(value.into())
+    }
     pub fn zero() -> Self {
         Self(0.0)
     }
-}
-
-impl Default for Seconds {
-    fn default() -> Self {
-        Self::zero()
+    pub fn squared(self) -> SecondsSquare {
+        SecondsSquare(self.0 * self.0)
+    }
+    pub fn cubed(self) -> SecondsCube {
+        SecondsCube(self.0 * self.0 * self.0)
+    }
+    pub fn max(self, max_value: Seconds) -> Seconds {
+        Seconds(self.0.max(max_value.0))
+    }
+    pub fn min(&self, min_value: Seconds) -> Seconds {
+        Seconds(self.0.min(min_value.0))
     }
 }
 
@@ -61,6 +71,9 @@ impl Meters {
     pub fn raw(&self) -> f64 {
         self.0
     }
+    pub fn abs(self) -> Self {
+        Meters(self.0.abs())
+    }
 }
 
 impl Neg for Meters {
@@ -77,17 +90,25 @@ impl SubAssign for Meters {
     }
 }
 
-pub trait MettersLiteral {
+impl Mul<PerSecond> for Meters {
+    type Output = Velocity;
+
+    fn mul(self, rhs: PerSecond) -> Self::Output {
+        Velocity(self.0 * rhs.0)
+    }
+}
+
+pub trait MetersLiteral {
     fn meters(self) -> Meters;
 }
 
-impl MettersLiteral for i32 {
+impl MetersLiteral for i32 {
     fn meters(self) -> Meters {
         Meters(self as f64)
     }
 }
 
-impl MettersLiteral for f64 {
+impl MetersLiteral for f64 {
     fn meters(self) -> Meters {
         Meters(self)
     }
@@ -102,7 +123,7 @@ pub struct PerMeter(pub f64); // 1/m
 pub struct PerSecond(pub f64); // 1/s
 
 #[repr(transparent)]
-#[derive(Copy, Clone, Default, PartialEq, Debug)]
+#[derive(Copy, Clone, Default, PartialEq, Debug, PartialOrd)]
 pub struct Velocity(pub f64); // m/s
 
 impl Velocity {
@@ -128,6 +149,23 @@ impl Mul<PerSecond> for Velocity {
 
     fn mul(self, rhs: PerSecond) -> Self::Output {
         Acceleration(self.0 * rhs.0)
+    }
+}
+
+/// (m/s) / m/s^2 = s
+impl Div<Acceleration> for Velocity {
+    type Output = Seconds;
+
+    fn div(self, rhs: Acceleration) -> Self::Output {
+        Seconds::new(self.0 / rhs.raw())
+    }
+}
+
+impl Mul<f64> for PerMeter {
+    type Output = PerMeter;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        PerMeter(self.0 * rhs)
     }
 }
 
@@ -181,6 +219,14 @@ impl Div<Acceleration> for VelocitySquare {
     }
 }
 
+impl Mul<f64> for VelocitySquare {
+    type Output = VelocitySquare;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        VelocitySquare(self.0 * rhs)
+    }
+}
+
 impl Sub<Seconds> for Seconds {
     type Output = Seconds;
 
@@ -194,6 +240,14 @@ impl Add<Seconds> for Seconds {
 
     fn add(self, rhs: Seconds) -> Self::Output {
         Seconds(self.0 + rhs.0)
+    }
+}
+
+impl Mul<f64> for Seconds {
+    type Output = Seconds;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Seconds(self.0 * rhs)
     }
 }
 
@@ -345,6 +399,38 @@ impl AddAssign for Velocity {
 impl SubAssign for Velocity {
     fn sub_assign(&mut self, rhs: Self) {
         self.0 -= rhs.0
+    }
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
+pub struct SecondsSquare(f64);
+
+impl SecondsSquare {
+    pub fn new(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl RawRepresentable for SecondsSquare {
+    fn raw(&self) -> f64 {
+        self.0
+    }
+}
+
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, PartialOrd)]
+pub struct SecondsCube(f64);
+
+impl SecondsCube {
+    pub fn new(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl RawRepresentable for SecondsCube {
+    fn raw(&self) -> f64 {
+        self.0
     }
 }
 

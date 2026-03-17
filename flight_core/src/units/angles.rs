@@ -1,3 +1,4 @@
+use crate::AngularDamping;
 use crate::{impl_debug_unit, units::units::Seconds};
 use std::f64::consts::PI;
 use std::fmt;
@@ -22,6 +23,10 @@ impl Degrees {
 
     pub fn sin(self) -> f64 {
         self.0.sin()
+    }
+
+    pub fn cos(self) -> f64 {
+        self.0.cos()
     }
 
     pub fn raw(&self) -> f64 {
@@ -387,6 +392,15 @@ impl Neg for AngularAcceleration {
 
     fn neg(self) -> Self::Output {
         AngularAcceleration(-self.0)
+    }
+}
+
+/// (Rad/s^2) / (1/s) = Rad/s
+impl Div<AngularDamping> for AngularAcceleration {
+    type Output = AngularVelocity;
+
+    fn div(self, rhs: AngularDamping) -> Self::Output {
+        AngularVelocity(self.0 / rhs.raw())
     }
 }
 

@@ -2,7 +2,7 @@ use crate::{
     simulator::{
         drone::Drone,
         force_model::{context::Context, force_model::ForceModel},
-        types::{acceleration_3d::WorldFrameAcceleration, quaternion::Quaternion},
+        types::{acceleration_3d::AccelerationNed, quaternion::Quaternion},
     },
     units::{acceleration::Acceleration, units::Seconds},
 };
@@ -14,10 +14,10 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
         &self,
         ctx: &Context<Vehicle>,
         _: Seconds,
-    ) -> WorldFrameAcceleration {
+    ) -> AccelerationNed {
         if ctx.state.battery_pct <= 0.0 {
             // No thrust without battery.
-            return WorldFrameAcceleration::zero();
+            return AccelerationNed::zero();
         }
 
         let inputs = ctx.inputs;
@@ -31,7 +31,7 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
         // x -> Forward
         // y -> Sides
         // z -> Vertical
-        return WorldFrameAcceleration::new(
+        return AccelerationNed::new(
             Acceleration(thrust_world_frame.x),
             Acceleration(thrust_world_frame.y),
             Acceleration(thrust_world_frame.z),

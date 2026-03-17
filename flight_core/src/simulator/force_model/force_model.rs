@@ -1,6 +1,6 @@
 use crate::{
     simulator::{
-        drone::Drone, force_model::context::Context, types::acceleration_3d::WorldFrameAcceleration,
+        drone::Drone, force_model::context::Context, types::acceleration_3d::AccelerationNed,
     },
     units::units::Seconds,
 };
@@ -10,5 +10,5 @@ pub trait ForceModel<Vehicle: Drone> {
         &self,
         ctx: &Context<Vehicle>,
         delta_t: Seconds,
-    ) -> WorldFrameAcceleration;
+    ) -> AccelerationNed;
 }

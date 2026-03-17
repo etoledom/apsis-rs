@@ -1,6 +1,7 @@
 use crate::{
     simulator::types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
     units::{
+        Seconds,
         acceleration::Acceleration,
         angles::{AngularAcceleration, Degrees},
         consts::G_EARTH,
@@ -26,6 +27,7 @@ pub trait Drone {
     fn hover_throttle(&self) -> Throttle {
         Throttle::clamp(G_EARTH / self.max_thrust_acceleration())
     }
+    fn motor_time_constant(&self) -> Seconds;
 
     // Drag
     fn drag_coefficient(&self) -> DragCoefficient;
@@ -34,6 +36,7 @@ pub trait Drone {
     fn battery_drain_pct(&self, throttle: Throttle) -> f64;
 }
 
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct DragCoefficient {
     pub vertical: Drag,
     pub horizontal: Drag,

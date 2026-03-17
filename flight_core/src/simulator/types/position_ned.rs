@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 
 use crate::{
     simulator::types::vec3::Vec3,
-    units::units::{Meters, MettersLiteral},
+    units::units::{Meters, MetersLiteral},
 };
 
 #[repr(transparent)]

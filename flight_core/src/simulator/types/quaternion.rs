@@ -3,14 +3,8 @@ use std::{
     ops::{Add, Mul, Neg},
 };
 
-use crate::{
-    VelocityNED,
-    simulator::types::angular_velocity_3d::AngularVelocity3D,
-    units::{
-        Velocity, VelocityLiteral,
-        angles::{Degrees, Radians},
-    },
-};
+use crate::simulator::types::angular_velocity_frd::AngularVelocityFrd;
+use crate::units::angles::{Degrees, Radians};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion {
@@ -28,7 +22,7 @@ impl Quaternion {
         Default::default()
     }
 
-    // ||q|| -> square_root ( w^2 + x^2 + y^2 + z^2 )
+    // ||q|| -> square_root( w^2 + x^2 + y^2 + z^2 )
     fn n(&self) -> f64 {
         (self.w.powi(2) + self.x.powi(2) + self.y.powi(2) + self.z.powi(2)).sqrt()
     }
@@ -45,7 +39,7 @@ impl Quaternion {
         }
     }
 
-    pub fn omega(velocity: AngularVelocity3D) -> Self {
+    pub fn omega(velocity: AngularVelocityFrd) -> Self {
         Self {
             w: 0.0,
             x: velocity.x().raw(),
@@ -63,16 +57,8 @@ impl Quaternion {
         }
     }
 
-    pub fn rotate_body_to_world(&self, forward: Velocity, right: Velocity) -> VelocityNED {
-        // q * v * q*
-        let q_v = Quaternion {
-            w: 0.0,
-            x: forward.into(),
-            y: right.into(),
-            z: 0.0,
-        };
-        let rotated = *self * q_v * self.conjugate();
-        VelocityNED::new(rotated.x.mps(), rotated.y.mps(), rotated.z.mps())
+    pub fn rotate(&self, q_v: Quaternion) -> Self {
+        *self * q_v * self.conjugate()
     }
 
     /// Returns pitch in radians. Positive nose-down.
@@ -123,6 +109,14 @@ impl Quaternion {
             y: cr * sp * cy + sr * cp * sy,
             z: cr * cp * sy - sr * sp * cy,
         }
+    }
+
+    pub fn from_yaw(yaw: Radians) -> Self {
+        Self::from_euler(Radians(0.0), Radians(0.0), yaw)
+    }
+
+    pub fn from_pitch(pitch: Radians) -> Self {
+        Self::from_euler(Radians(0.0), pitch, Radians(0.0))
     }
 
     pub fn clamped(self, max_pitch: Radians, max_roll: Radians) -> Self {

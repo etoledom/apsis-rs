@@ -59,9 +59,10 @@ pub struct PID<Error, Output, Kp, Ki, Kd> {
     pub kd: Kd,
 
     limits: Option<PIDLimits<Output>>,
+    conditional_integration: bool,
 
     pub integral: Error,
-    previous_error: Option<Error>,
+    pub previous_error: Option<Error>,
 }
 
 impl<Error, Output, Kp, Ki, Kd> PID<Error, Output, Kp, Ki, Kd>
@@ -81,12 +82,11 @@ where
         + Clampable<Output>
         + Sub<Output = Output>
         + RawRepresentable
-        + Neg<Output = Output>,
-    Kp: Gain<Error, Output> + Default,
-    Ki: Gain<Error, Output> + Default,
-    Kd: Gain<Error, Output> + Default,
-    // Transforms Output to Error to implement anti-windup
-    // Converter: ConverterType<Output, Error> + Default,
+        + Neg<Output = Output>
+        + Initializable,
+    Kp: Gain<Error, Output> + Default + RawRepresentable,
+    Ki: Gain<Error, Output> + Default + RawRepresentable,
+    Kd: Gain<Error, Output> + Default + RawRepresentable,
 {
     pub fn new(kp: impl Into<Kp>, ki: impl Into<Ki>, kd: impl Into<Kd>) -> Self {
         Self {
@@ -96,32 +96,49 @@ where
             limits: None,
             integral: Error::default(),
             previous_error: None,
+            conditional_integration: false,
+        }
+    }
+
+    pub fn with_conditional_integration(self) -> Self {
+        Self {
+            conditional_integration: true,
+            ..self
         }
     }
 
     pub fn update(&mut self, error: Error, dt: Seconds) -> Output {
         let p = self.kp.apply(error);
 
-        self.integral += error * dt.0;
-        let i = self.ki.apply(self.integral);
-
-        let derivative = if let Some(previous_error) = self.previous_error {
-            (error - previous_error) / dt.0
+        let i = if self.ki.raw() > 0.0 {
+            self.integral += error * dt.0;
+            self.ki.apply(self.integral)
         } else {
-            Error::default()
+            Output::new(0.0)
         };
 
-        let d = self.kd.apply(derivative);
+        let d = if self.kd.raw() > 0.0 {
+            let derivative = if let Some(previous_error) = self.previous_error {
+                (error - previous_error) / dt.0
+            } else {
+                Error::default()
+            };
 
-        self.previous_error = Some(error);
+            self.previous_error = Some(error);
+            self.kd.apply(derivative)
+        } else {
+            Output::new(0.0)
+        };
 
         let raw_output = p + d + i;
 
         if let Some(limits) = self.limits {
             let clamped_output = raw_output.clamped(limits);
 
-            let windup_error: Error = Converter::convert(raw_output - clamped_output);
-            self.integral -= windup_error * dt.0;
+            if self.ki.raw() > 0.0 {
+                let windup_error: Error = Converter::convert(raw_output - clamped_output);
+                self.integral -= windup_error * dt.0;
+            }
             return clamped_output;
         }
 
@@ -152,7 +169,7 @@ mod test {
 
     use crate::{
         controller::gain::LinearGain,
-        units::units::{MettersLiteral, SecondsLiteral, VelocityLiteral},
+        units::units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
     };
 
     use super::*;

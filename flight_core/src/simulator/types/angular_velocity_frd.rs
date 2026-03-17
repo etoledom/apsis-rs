@@ -3,9 +3,9 @@ use std::ops::{AddAssign, Sub};
 use crate::{simulator::types::vec3::Vec3, units::angles::AngularVelocity};
 
 #[derive(Debug, Clone, Copy, Default)]
-pub struct AngularVelocity3D(Vec3<AngularVelocity>);
+pub struct AngularVelocityFrd(Vec3<AngularVelocity>);
 
-impl AngularVelocity3D {
+impl AngularVelocityFrd {
     pub fn new(
         x: impl Into<AngularVelocity>,
         y: impl Into<AngularVelocity>,
@@ -40,7 +40,7 @@ impl AngularVelocity3D {
     }
 }
 
-impl AddAssign for AngularVelocity3D {
+impl AddAssign for AngularVelocityFrd {
     fn add_assign(&mut self, rhs: Self) {
         self.0.x += rhs.x();
         self.0.y += rhs.y();
@@ -48,10 +48,10 @@ impl AddAssign for AngularVelocity3D {
     }
 }
 
-impl Sub for AngularVelocity3D {
-    type Output = AngularVelocity3D;
+impl Sub for AngularVelocityFrd {
+    type Output = AngularVelocityFrd;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        AngularVelocity3D(self.0 - rhs.0)
+        AngularVelocityFrd(self.0 - rhs.0)
     }
 }

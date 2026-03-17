@@ -1,6 +1,6 @@
 use crate::units::units::PerMeter;
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Drag(PerMeter);
 
 impl Drag {
@@ -10,5 +10,8 @@ impl Drag {
 
     pub fn value(&self) -> PerMeter {
         self.0
+    }
+    pub fn raw(&self) -> f64 {
+        self.value().0
     }
 }

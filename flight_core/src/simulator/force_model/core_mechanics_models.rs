@@ -5,7 +5,7 @@ use crate::{
             context::Context, drag_model::DragModel, force_model::ForceModel,
             gravity_model::GravityModel, thrust_model::ThrustModel,
         },
-        types::acceleration_3d::WorldFrameAcceleration,
+        types::acceleration_3d::AccelerationNed,
     },
     units::units::Seconds,
 };
@@ -31,7 +31,7 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for CoreMechanicsModel {
         &self,
         ctx: &Context<Vehicle>,
         delta_t: Seconds,
-    ) -> WorldFrameAcceleration {
+    ) -> AccelerationNed {
         self.gravity.acceleration_contribution(ctx, delta_t)
             + self.drag.acceleration_contribution(ctx, delta_t)
             + self.thrust.acceleration_contribution(ctx, delta_t)

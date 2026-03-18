@@ -1,7 +1,10 @@
 use crate::{theme, widgets::components::data_label::DataLabel};
 use eframe::egui;
 use egui::{Painter, Pos2, Stroke, pos2, vec2};
-use flight_core::units::angles::{Degrees, Radians};
+use flight_core::units::{
+    angles::{Degrees, Radians},
+    traits::RawRepresentable,
+};
 
 pub struct AttitudeIndicator {
     /// Pitch in degrees. Positive = nose up (aerospace convention)
@@ -84,7 +87,7 @@ impl AttitudeIndicator {
         // Pitch offset in pixels: positive pitch = nose up = horizon moves DOWN
         // in screen space (screen Y increases downward).
         // So we ADD pitch * px_per_deg to move horizon down for nose-up pitch.
-        let pitch_offset = self.pitch.raw_f32() * px_per_deg;
+        let pitch_offset = (self.pitch.raw() as f32) * px_per_deg;
 
         // The horizon Y position after applying pitch offset.
         // At zero pitch the horizon is at the center.
@@ -412,7 +415,7 @@ impl AttitudeIndicator {
         // Small triangle on the circle edge that rotates with the aircraft roll.
         // Tip points outward toward the fixed tick ring so the pilot reads
         // roll by seeing which tick the pointer aligns with.
-        let tri_angle = roll.raw_f32() - std::f32::consts::FRAC_PI_2;
+        let tri_angle = roll.raw() as f32 - std::f32::consts::FRAC_PI_2;
         let rad_x = tri_angle.cos();
         let rad_y = tri_angle.sin();
         let perp_x = -tri_angle.sin();

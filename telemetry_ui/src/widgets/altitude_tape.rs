@@ -1,5 +1,5 @@
 use eframe::egui::{self, Align2, FontId, Sense, Stroke, Vec2, pos2};
-use flight_core::units::Meters;
+use flight_core::units::{Meters, traits::RawRepresentable};
 
 use crate::theme::*;
 
@@ -10,7 +10,7 @@ pub struct AltitudeTape {
 
 impl AltitudeTape {
     pub fn show(&self, ui: &mut egui::Ui) {
-        let altitude = self.altitude.0 as f32;
+        let altitude = self.altitude.raw() as f32;
 
         let width = ui.available_width();
         let (rect, _) = ui.allocate_exact_size(Vec2::new(width, self.height), Sense::hover());

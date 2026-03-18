@@ -1,5 +1,5 @@
 use eframe::egui;
-use flight_core::units::Meters;
+use flight_core::units::{Meters, traits::RawRepresentable};
 
 use crate::{
     theme::{self},
@@ -15,14 +15,14 @@ impl DistanceFromHome {
     fn distance(&self) -> f32 {
         // Horizontal distance only — altitude not included.
         // This is the straight line distance from takeoff point on the ground plane.
-        (self.north.0 * self.north.0 + self.east.0 * self.east.0).sqrt() as f32
+        (self.north.raw() * self.north.raw() + self.east.raw() * self.east.raw()).sqrt() as f32
     }
 
     fn cardinal_direction(&self) -> &'static str {
         // Direction FROM home TO drone.
         // atan2(east, north) gives bearing clockwise from north in radians.
         // Only meaningful if we're far enough from home to have a real direction.
-        let bearing = self.east.0.atan2(self.north.0).to_degrees();
+        let bearing = self.east.raw().atan2(self.north.raw()).to_degrees();
         let bearing = (bearing + 360.0) % 360.0;
         let index = ((bearing + 11.25) / 22.5) as usize % 16;
         [

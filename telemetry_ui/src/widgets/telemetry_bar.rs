@@ -3,7 +3,7 @@ use crate::{
     widgets::components::{data_label::DataLabel, status_box::StatusBox},
 };
 use eframe::egui;
-use flight_core::state::State;
+use flight_core::{state::State, units::traits::RawRepresentable};
 
 pub struct TelemetryBar<'a> {
     pub state: &'a Option<State>,
@@ -34,13 +34,13 @@ impl<'a> TelemetryBar<'a> {
                     // ── POSITION ──
                     //
                     ui.label(theme::label("POS "));
-                    DataLabel::new(state.position_ned.north().0 as f32)
+                    DataLabel::new(state.position_ned.north().raw() as f32)
                         .label("N:")
                         .show(ui);
-                    DataLabel::new(state.position_ned.east().0 as f32)
+                    DataLabel::new(state.position_ned.east().raw() as f32)
                         .label("E:")
                         .show(ui);
-                    DataLabel::new(state.position_ned.down().0 as f32)
+                    DataLabel::new(state.position_ned.down().raw() as f32)
                         .label("D:")
                         .show(ui);
 
@@ -52,13 +52,13 @@ impl<'a> TelemetryBar<'a> {
                     //
                     ui.label(theme::label("VEL "));
 
-                    DataLabel::new(state.velocity_ned.north().0 as f32)
+                    DataLabel::new(state.velocity_ned.north().raw() as f32)
                         .label("N:")
                         .show(ui);
-                    DataLabel::new(state.velocity_ned.east().0 as f32)
+                    DataLabel::new(state.velocity_ned.east().raw() as f32)
                         .label("E:")
                         .show(ui);
-                    DataLabel::new(state.velocity_ned.down().0 as f32)
+                    DataLabel::new(state.velocity_ned.down().raw() as f32)
                         .label("D:")
                         .show(ui);
 
@@ -70,13 +70,13 @@ impl<'a> TelemetryBar<'a> {
                     //
                     ui.label(theme::label("ATT "));
 
-                    DataLabel::new(state.attitude.pitch().to_degrees().raw_f32())
+                    DataLabel::new(state.attitude.pitch().to_degrees().raw() as f32)
                         .label("P:")
                         .show(ui);
-                    DataLabel::new(state.attitude.roll().to_degrees().raw_f32())
+                    DataLabel::new(state.attitude.roll().to_degrees().raw() as f32)
                         .label("R:")
                         .show(ui);
-                    DataLabel::new(state.attitude.yaw().to_degrees().raw_f32())
+                    DataLabel::new(state.attitude.yaw().to_degrees().raw() as f32)
                         .label("Y:")
                         .show(ui);
 

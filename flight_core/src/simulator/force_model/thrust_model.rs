@@ -4,17 +4,16 @@ use crate::{
         force_model::{context::Context, force_model::ForceModel},
         types::{acceleration_3d::AccelerationNed, quaternion::Quaternion},
     },
-    units::{acceleration::Acceleration, units::Seconds},
+    units::{
+        Acceleration, Seconds,
+        traits::{Initializable, RawRepresentable},
+    },
 };
 
 pub struct ThrustModel;
 
 impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
-    fn acceleration_contribution(
-        &self,
-        ctx: &Context<Vehicle>,
-        _: Seconds,
-    ) -> AccelerationNed {
+    fn acceleration_contribution(&self, ctx: &Context<Vehicle>, _: Seconds) -> AccelerationNed {
         if ctx.state.battery_pct <= 0.0 {
             // No thrust without battery.
             return AccelerationNed::zero();
@@ -32,9 +31,9 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
         // y -> Sides
         // z -> Vertical
         return AccelerationNed::new(
-            Acceleration(thrust_world_frame.x),
-            Acceleration(thrust_world_frame.y),
-            Acceleration(thrust_world_frame.z),
+            Acceleration::new(thrust_world_frame.x),
+            Acceleration::new(thrust_world_frame.y),
+            Acceleration::new(thrust_world_frame.z),
         );
     }
 }
@@ -49,7 +48,7 @@ mod tests {
         simulator::{
             default_drone::DefaultDrone, inputs::Inputs, state::State, types::throttle::Throttle,
         },
-        units::{angles::DegreesLiteral, consts::G_EARTH, units::SecondsLiteral},
+        units::{SecondsLiteral, angles::DegreesLiteral, consts::G_EARTH},
     };
 
     use super::*;
@@ -247,9 +246,8 @@ mod tests {
             vehicle: &drone,
         };
         let acc = model.acceleration_contribution(&ctx, 1.0.seconds());
-        println!("north acc: {}", acc.north().0);
         assert!(
-            acc.north().0 > 0.0,
+            acc.north().raw() > 0.0,
             "nose down should produce positive north acceleration"
         );
     }

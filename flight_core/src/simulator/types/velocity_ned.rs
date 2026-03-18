@@ -5,10 +5,7 @@ use crate::{
     simulator::types::{
         acceleration_3d::WorldFrameGroundVelocity, position_ned::PositionNed, vec3::Vec3,
     },
-    units::{
-        traits::RawRepresentable,
-        units::{Seconds, Velocity, VelocityLiteral},
-    },
+    units::{Seconds, Velocity, VelocityLiteral, traits::RawRepresentable},
     velocity_frd::VelocityFrd,
 };
 
@@ -99,9 +96,9 @@ impl Mul<Seconds> for VelocityNed {
 
 impl AddAssign for VelocityNed {
     fn add_assign(&mut self, rhs: Self) {
-        self.0.x.0 += rhs.0.x.0;
-        self.0.y.0 += rhs.0.y.0;
-        self.0.z.0 += rhs.0.z.0;
+        self.0.x += rhs.0.x;
+        self.0.y += rhs.0.y;
+        self.0.z += rhs.0.z;
     }
 }
 

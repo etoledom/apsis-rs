@@ -1,4 +1,5 @@
 use eframe::egui::{self, vec2};
+use flight_core::units::traits::RawRepresentable;
 
 use crate::{
     pilot_control::controller::Target,
@@ -12,10 +13,10 @@ pub struct VelocityTargetDisplay {
 
 impl VelocityTargetDisplay {
     pub fn show(&self, ui: &mut egui::Ui) {
-        let forward = self.target.forward.0 as f32;
-        let right = self.target.right.0 as f32;
+        let forward = self.target.forward.raw() as f32;
+        let right = self.target.right.raw() as f32;
         let yaw = self.target.yaw_rate.raw() as f32;
-        let up = self.target.up.0 as f32;
+        let up = self.target.up.raw() as f32;
 
         ui.set_min_width(ui.available_width());
 

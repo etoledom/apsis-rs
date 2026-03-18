@@ -3,8 +3,13 @@ use std::{
     ops::{Add, Mul, Neg},
 };
 
-use crate::simulator::types::angular_velocity_frd::AngularVelocityFrd;
-use crate::units::angles::{Degrees, Radians};
+use crate::units::{
+    angles::{Degrees, Radians},
+    traits::RawRepresentable,
+};
+use crate::{
+    simulator::types::angular_velocity_frd::AngularVelocityFrd, units::traits::UnitsArithmetics,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Quaternion {
@@ -122,8 +127,8 @@ impl Quaternion {
     pub fn clamped(self, max_pitch: Radians, max_roll: Radians) -> Self {
         let (roll, pitch, yaw) = self.to_euler();
         Self::from_euler(
-            roll.clamp(-max_roll, max_roll),
-            pitch.clamp(-max_pitch, max_pitch),
+            roll.clamping(-max_roll, max_roll),
+            pitch.clamping(-max_pitch, max_pitch),
             yaw,
         )
     }

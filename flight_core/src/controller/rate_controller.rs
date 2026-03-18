@@ -3,7 +3,7 @@ use crate::{
     simulator::types::{
         angular_velocity_frd::AngularVelocityFrd, pitch::Pitch, roll::Roll, yaw::Yaw,
     },
-    units::units::Seconds,
+    units::Seconds,
 };
 
 pub struct RateController {
@@ -38,7 +38,7 @@ impl RateController {
 
 #[cfg(test)]
 mod rate_controller_tests {
-    use crate::units::units::SecondsLiteral;
+    use crate::units::SecondsLiteral;
 
     use super::*;
 
@@ -53,7 +53,7 @@ mod rate_controller_tests {
     #[test]
     fn zero_error_produces_zero_inputs() {
         let mut ctrl = make_controller();
-        let (roll, pitch, yaw) = ctrl.update(zero_rates(), zero_rates(), Seconds(0.1));
+        let (roll, pitch, yaw) = ctrl.update(zero_rates(), zero_rates(), 0.1.seconds());
         assert_eq!((roll.get()).abs(), 0.0);
         assert_eq!((pitch.get()).abs(), 0.0);
         assert_eq!((yaw.get()).abs(), 0.0);
@@ -63,7 +63,7 @@ mod rate_controller_tests {
     fn roll_rate_error_only_affects_roll_input() {
         let mut ctrl = make_controller();
         let target = AngularVelocityFrd::new(1.0, 0.0, 0.0);
-        let (roll, pitch, yaw) = ctrl.update(target, zero_rates(), Seconds(0.1));
+        let (roll, pitch, yaw) = ctrl.update(target, zero_rates(), 0.1.seconds());
 
         assert!(roll.get() > 0.0, "roll input should be positive");
         assert!((pitch.get()).abs() < 1e-6, "pitch input should be zero");
@@ -74,7 +74,7 @@ mod rate_controller_tests {
     fn output_proportional_to_rate_error() {
         let mut ctrl = make_controller();
         let target = AngularVelocityFrd::new(2.0, 0.0, 0.0);
-        let (roll, ..) = ctrl.update(target, zero_rates(), Seconds(0.1));
+        let (roll, ..) = ctrl.update(target, zero_rates(), 0.1.seconds());
         // kp=0.8, error=2.0 → output=0.2
         // roll = 1.6.clamped() -> 1.0
         assert_eq!(roll.get(), 1.0);
@@ -84,7 +84,7 @@ mod rate_controller_tests {
     fn output_is_clamped_to_valid_range() {
         let mut ctrl = make_controller();
         let target = AngularVelocityFrd::new(9999.0, 0.0, 0.0);
-        let (roll, ..) = ctrl.update(target, zero_rates(), Seconds(0.1));
+        let (roll, ..) = ctrl.update(target, zero_rates(), 0.1.seconds());
         assert!(roll.get() <= 1.0, "roll input must not exceed 1.0");
         assert!(roll.get() >= -1.0);
     }

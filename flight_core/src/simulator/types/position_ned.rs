@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign, Mul, Sub};
 
 use crate::{
     simulator::types::vec3::Vec3,
-    units::units::{Meters, MetersLiteral},
+    units::{Meters, MetersLiteral},
 };
 
 #[repr(transparent)]
@@ -69,8 +69,8 @@ impl Sub for PositionNed {
 
 impl AddAssign for PositionNed {
     fn add_assign(&mut self, rhs: Self) {
-        self.0.x.0 += rhs.0.x.0;
-        self.0.y.0 += rhs.0.y.0;
-        self.0.z.0 += rhs.0.z.0;
+        self.0.x += rhs.0.x;
+        self.0.y += rhs.0.y;
+        self.0.z += rhs.0.z;
     }
 }

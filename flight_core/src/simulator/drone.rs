@@ -1,8 +1,7 @@
 use crate::{
     simulator::types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
     units::{
-        Seconds,
-        acceleration::Acceleration,
+        Acceleration, Seconds,
         angles::{AngularAcceleration, Degrees},
         consts::G_EARTH,
     },

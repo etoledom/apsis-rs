@@ -2,7 +2,7 @@ use crate::{
     simulator::{
         drone::Drone, force_model::context::Context, types::acceleration_3d::AccelerationNed,
     },
-    units::units::Seconds,
+    units::Seconds,
 };
 
 pub trait ForceModel<Vehicle: Drone> {

@@ -1,4 +1,4 @@
-use crate::{PositionNed, VelocityNed, controller::pid::PositionPID, units::units::Seconds};
+use crate::{PositionNed, VelocityNed, controller::pid::PositionPID, units::Seconds};
 
 pub struct PositionController {
     north_pid: PositionPID,

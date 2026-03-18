@@ -1,9 +1,9 @@
 use std::ops::{Div, Mul};
 
 use crate::units::{
-    Seconds,
+    PerSecond, Seconds,
     angles::{AngularAcceleration, AngularVelocity},
-    units::PerSecond,
+    traits::{Initializable, RawRepresentable},
 };
 
 #[repr(transparent)]

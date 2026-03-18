@@ -5,7 +5,7 @@ use crate::{
         force_model::{context::Context, force_model::ForceModel},
         types::acceleration_3d::AccelerationNed,
     },
-    units::{VelocityLiteral, acceleration::AccelerationLiteral, units::Seconds},
+    units::{AccelerationLiteral, Seconds, VelocityLiteral, traits::UnitsArithmetics},
 };
 
 pub struct DragModel;
@@ -55,9 +55,8 @@ mod tests {
             types::velocity_ned::VelocityNed,
         },
         units::{
-            MetersLiteral,
-            angles::DegreesLiteral,
-            units::{SecondsLiteral, VelocityLiteral},
+            MetersLiteral, SecondsLiteral, VelocityLiteral, angles::DegreesLiteral,
+            traits::RawRepresentable,
         },
     };
 
@@ -77,7 +76,7 @@ mod tests {
         };
         let acc = model.acceleration_contribution(&ctx, 1.seconds());
 
-        assert!(acc.north().0 < 0.0, "drag should oppose north velocity");
+        assert!(acc.north().raw() < 0.0, "drag should oppose north velocity");
     }
 
     #[test]
@@ -94,7 +93,7 @@ mod tests {
         };
         let acc = model.acceleration_contribution(&ctx, 1.0.seconds());
 
-        assert!(acc.east().0 < 0.0, "drag should oppose east velocity");
+        assert!(acc.east().raw() < 0.0, "drag should oppose east velocity");
     }
 
     #[test]
@@ -132,19 +131,19 @@ mod tests {
         let tolerance = 1e-6;
         // Same speed, same body-frame direction (forward) — should get same magnitude
         assert!(
-            (drag_zero.north().0.abs() - drag_90.east().0.abs()).abs() < tolerance,
+            (drag_zero.north().raw().abs() - drag_90.east().raw().abs()).abs() < tolerance,
             "forward drag should apply to north at 0° yaw ({}) and east at 90° yaw ({})",
-            drag_zero.north().0,
-            drag_90.east().0
+            drag_zero.north().raw(),
+            drag_90.east().raw()
         );
 
         // Cross axes should be near zero
         assert!(
-            drag_zero.east().0.abs() < tolerance,
+            drag_zero.east().raw().abs() < tolerance,
             "no east drag at 0° yaw moving north"
         );
         assert!(
-            drag_90.north().0.abs() < tolerance,
+            drag_90.north().raw().abs() < tolerance,
             "no north drag at 90° yaw moving east"
         );
     }

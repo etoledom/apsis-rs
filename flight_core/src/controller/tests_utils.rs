@@ -1,7 +1,7 @@
 use crate::{
     AngularDamping, Drag, Drone, Throttle,
     drone::DragCoefficient,
-    units::{angles::*, *},
+    units::{angles::*, traits::Initializable, *},
 };
 
 #[derive(Clone, Copy)]
@@ -46,6 +46,6 @@ impl Drone for TestDrone {
         0.1
     }
     fn motor_time_constant(&self) -> Seconds {
-        Seconds(0.2)
+        0.2.seconds()
     }
 }

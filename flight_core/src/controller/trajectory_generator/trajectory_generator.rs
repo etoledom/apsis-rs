@@ -72,11 +72,10 @@ impl TrajectoryGenerator {
 mod trajectory_generator_tests {
     use super::*;
     use crate::{
-        JerkLiteral,
         controller::AxisTarget,
         units::{
-            MetersLiteral, PerSecond, SecondsLiteral, VelocityLiteral,
-            acceleration::AccelerationLiteral, traits::RawRepresentable,
+            AccelerationLiteral, JerkLiteral, MetersLiteral, PerSecond, SecondsLiteral,
+            VelocityLiteral, traits::RawRepresentable,
         },
     };
 

@@ -4,10 +4,9 @@ use crate::{
     controller::gain::{Converter, Gain, LinearGain},
     simulator::types::{pitch::Pitch, roll::Roll, yaw::Yaw},
     units::{
-        acceleration::Acceleration,
+        Acceleration, Meters, Seconds, Velocity,
         angles::{AngularVelocity, Radians},
-        traits::{Initializable, RawRepresentable},
-        units::{Meters, Seconds, Velocity},
+        traits::{Initializable, RawRepresentable, UnitsArithmetics},
     },
 };
 
@@ -111,7 +110,7 @@ where
         let p = self.kp.apply(error);
 
         let i = if self.ki.raw() > 0.0 {
-            self.integral += error * dt.0;
+            self.integral += error * dt.raw();
             self.ki.apply(self.integral)
         } else {
             Output::new(0.0)
@@ -119,7 +118,7 @@ where
 
         let d = if self.kd.raw() > 0.0 {
             let derivative = if let Some(previous_error) = self.previous_error {
-                (error - previous_error) / dt.0
+                (error - previous_error) / dt.raw()
             } else {
                 Error::default()
             };
@@ -137,7 +136,7 @@ where
 
             if self.ki.raw() > 0.0 {
                 let windup_error: Error = Converter::convert(raw_output - clamped_output);
-                self.integral -= windup_error * dt.0;
+                self.integral -= windup_error * dt.raw();
             }
             return clamped_output;
         }
@@ -169,7 +168,7 @@ mod test {
 
     use crate::{
         controller::gain::LinearGain,
-        units::units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
+        units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
     };
 
     use super::*;
@@ -252,7 +251,7 @@ mod test {
         }
 
         // Integral should not keep growing after saturation
-        assert_relative_eq!(pid.integral.0, integral_after_100.0, epsilon = 1e-3);
+        assert_relative_eq!(pid.integral.raw(), integral_after_100.raw(), epsilon = 1e-3);
     }
 
     #[test]
@@ -272,7 +271,7 @@ mod test {
         }
         let output = pid.update(-100.meters(), dt);
         assert!(
-            output.0 < 0.0,
+            output.raw() < 0.0,
             "should immediately respond to reversed error {}",
             output
         );

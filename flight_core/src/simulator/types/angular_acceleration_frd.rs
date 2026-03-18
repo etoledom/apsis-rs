@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 use crate::{
     simulator::types::{angular_velocity_frd::AngularVelocityFrd, vec3::Vec3},
-    units::{angles::AngularAcceleration, units::Seconds},
+    units::{Seconds, angles::AngularAcceleration},
 };
 
 #[derive(Debug, Clone, Copy, Default)]

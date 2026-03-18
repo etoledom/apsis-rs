@@ -1,5 +1,5 @@
 use eframe::egui;
-use flight_core::units::Velocity;
+use flight_core::units::{Velocity, traits::RawRepresentable};
 
 use crate::{
     theme::{self},
@@ -15,7 +15,7 @@ pub struct VerticalSpeedIndicator {
 
 impl VerticalSpeedIndicator {
     pub fn show(&self, ui: &mut egui::Ui) {
-        let speed = self.speed.0 as f32;
+        let speed = self.speed.raw() as f32;
 
         // Total width of the widget — matches a typical panel width
         let width = ui.available_width();

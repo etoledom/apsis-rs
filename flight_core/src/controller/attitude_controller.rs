@@ -2,8 +2,9 @@ use crate::{
     controller::pid::AngularPID,
     simulator::types::{angular_velocity_frd::AngularVelocityFrd, quaternion::Quaternion},
     units::{
+        Seconds,
         angles::{AngularVelocity, Radians},
-        units::Seconds,
+        traits::Initializable,
     },
 };
 
@@ -16,9 +17,9 @@ pub struct AttitudeController {
 impl AttitudeController {
     pub fn new() -> Self {
         Self {
-            pitch_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity(1.5)),
-            roll_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity(1.5)),
-            yaw_pid: AngularPID::new(4, 0, 0.5).with_limits(AngularVelocity(1.5)),
+            pitch_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity::new(1.5)),
+            roll_pid: AngularPID::new(5, 0, 2.0).with_limits(AngularVelocity::new(1.5)),
+            yaw_pid: AngularPID::new(4, 0, 0.5).with_limits(AngularVelocity::new(1.5)),
         }
     }
     pub fn update(
@@ -46,7 +47,7 @@ impl AttitudeController {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::units::{angles::DegreesLiteral, units::SecondsLiteral};
+    use crate::units::{SecondsLiteral, angles::DegreesLiteral, traits::RawRepresentable};
 
     use super::*;
 
@@ -75,7 +76,7 @@ mod tests {
             z: 0.0,
         };
 
-        let output = controller.update(q_target, Quaternion::identity(), Seconds(0.1));
+        let output = controller.update(q_target, Quaternion::identity(), 0.1.seconds());
 
         assert!(output.y().raw() > 0.0, "pitch should be positive");
         assert_relative_eq!((output.x().raw()).abs(), 0.0, epsilon = 1e-6);
@@ -115,8 +116,8 @@ mod tests {
         };
         let q_neg = q_pos.conjugate();
 
-        let out_pos = controller_1.update(Quaternion::identity(), q_pos, Seconds(0.1));
-        let out_neg = controller_2.update(Quaternion::identity(), q_neg, Seconds(0.1));
+        let out_pos = controller_1.update(Quaternion::identity(), q_pos, 0.1.seconds());
+        let out_neg = controller_2.update(Quaternion::identity(), q_neg, 0.1.seconds());
 
         assert!((out_pos.y() + out_neg.y()).raw().abs() < 1e-6);
     }

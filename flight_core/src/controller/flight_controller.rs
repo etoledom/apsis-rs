@@ -1,5 +1,5 @@
 use crate::{
-    AccelerationFrd, AngularVelocityFrd, Drone, Jerk, JerkLiteral, PositionNed, Throttle,
+    AccelerationFrd, AngularVelocityFrd, Drone, PositionNed, Throttle,
     controller::{
         attitude_controller::AttitudeController,
         position_controller::PositionController,
@@ -21,11 +21,11 @@ use crate::{
         },
     },
     units::{
-        MetersLiteral, PerSecond, Velocity, VelocityLiteral,
-        acceleration::{Acceleration, AccelerationLiteral},
+        Acceleration, AccelerationLiteral, Jerk, JerkLiteral, Meters, MetersLiteral, PerSecond,
+        Seconds, Velocity, VelocityLiteral,
         angles::{AngularVelocity, Radians},
         consts::G_EARTH,
-        units::{Meters, Seconds},
+        traits::{RawRepresentable, UnitsArithmetics},
     },
 };
 
@@ -406,10 +406,10 @@ impl FlightController {
         attitude: &Quaternion,
         max_thrust: Acceleration,
     ) -> Throttle {
-        let vertical_acc_needed = acc_target.down().0 - G_EARTH.raw();
+        let vertical_acc_needed = acc_target.down() - G_EARTH;
         let tilt_compensation = attitude.pitch().cos() * attitude.roll().cos();
 
-        Throttle::clamp(vertical_acc_needed.abs() / (max_thrust.raw() * tilt_compensation))
+        Throttle::clamp(vertical_acc_needed.raw().abs() / (max_thrust.raw() * tilt_compensation))
     }
 
     pub fn set_target_velocity(&mut self, velocity: VelocityNed) {
@@ -456,9 +456,8 @@ mod flight_controller_tests {
         controller::tests_utils::TestDrone,
         simulator::types::{angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed},
         units::{
-            acceleration::AccelerationLiteral,
-            angles::DegreesLiteral,
-            units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
+            AccelerationLiteral, MetersLiteral, SecondsLiteral, VelocityLiteral,
+            angles::DegreesLiteral, traits::Initializable,
         },
     };
 
@@ -500,7 +499,7 @@ mod flight_controller_tests {
 
         ctrl.set_target_down(AxisTarget::Position(-10.meters()));
 
-        let inputs = ctrl.update(&low_state, Seconds(0.1));
+        let inputs = ctrl.update(&low_state, 0.1.seconds());
 
         assert!(
             inputs.throttle.get() > 0.5,
@@ -517,7 +516,7 @@ mod flight_controller_tests {
         // high_state.position_ned = PositionNed::from_altitude_ned(-15.meters()); // 5m above target
         ctrl.set_target_velocity(VelocityNed::new(0.mps(), 0.mps(), -5.mps()));
 
-        let inputs = ctrl.update(&high_state, Seconds(0.1));
+        let inputs = ctrl.update(&high_state, 0.1.seconds());
 
         assert!(
             inputs.throttle.get() > 0.5,
@@ -533,7 +532,7 @@ mod flight_controller_tests {
         // high_state.position_ned = PositionNed::from_altitude_ned(-15.meters()); // 5m above target
         ctrl.set_target_velocity(VelocityNed::new(0.mps(), 0.mps(), 5.mps()));
 
-        let inputs = ctrl.update(&high_state, Seconds(0.1));
+        let inputs = ctrl.update(&high_state, 0.1.seconds());
 
         assert!(
             inputs.throttle.get() < 0.5,
@@ -554,7 +553,7 @@ mod flight_controller_tests {
             z: 0.0,
         };
 
-        let inputs = ctrl.update(&rolled_state, Seconds(0.1));
+        let inputs = ctrl.update(&rolled_state, 0.1.seconds());
         assert!(
             inputs.roll.get() < 0.0,
             "should correct against positive roll"
@@ -567,7 +566,7 @@ mod flight_controller_tests {
 
         // Extreme state — far from target, high rates
         let extreme_state = State {
-            altitude: Meters(0.0),
+            altitude: 0.meters(),
             velocity_ned: VelocityNed::new(10.mps(), 10.mps(), 10.mps()),
             attitude: Quaternion {
                 w: 0.5,
@@ -579,7 +578,7 @@ mod flight_controller_tests {
             ..nominal_state()
         };
 
-        let inputs = ctrl.update(&extreme_state, Seconds(0.1));
+        let inputs = ctrl.update(&extreme_state, 0.1.seconds());
         assert!(inputs.throttle.get() >= 0.0 && inputs.throttle.get() <= 1.0);
         assert!(inputs.roll.get() >= -1.0 && inputs.roll.get() <= 1.0);
         assert!(inputs.pitch.get() >= -1.0 && inputs.pitch.get() <= 1.0);
@@ -660,7 +659,7 @@ mod flight_controller_tests {
             z: 0.0,
         };
 
-        let inputs = ctrl.update(&pitched_state, Seconds(0.1));
+        let inputs = ctrl.update(&pitched_state, 0.1.seconds());
 
         assert!(inputs.pitch.get() < 0.0);
     }
@@ -671,7 +670,7 @@ mod flight_controller_tests {
         // target moving north
         ctrl.set_target_velocity(VelocityNed::new(1.mps(), 0.mps(), 0.mps()));
 
-        let inputs = ctrl.update(&nominal_state(), Seconds(0.1));
+        let inputs = ctrl.update(&nominal_state(), 0.1.seconds());
 
         assert!(
             inputs.pitch.get() < 0.0,
@@ -971,11 +970,11 @@ mod flight_controller_tests {
     #[test]
     fn yaw_rate_is_injected_directly() {
         let mut ctrl = make_controller();
-        ctrl.set_yaw_rate_target(AngularVelocity(1.0));
+        ctrl.set_yaw_rate_target(AngularVelocity::new(1.0));
 
         let state = nominal_state();
         let q_target = Quaternion::identity();
-        let rates = ctrl.compute_angular_rates(q_target, &state, Seconds(0.1));
+        let rates = ctrl.compute_angular_rates(q_target, &state, 0.1.seconds());
         assert_relative_eq!(rates.z().raw(), 1.0, epsilon = 1e-6);
     }
 
@@ -991,7 +990,7 @@ mod flight_controller_tests {
             z: 0.0,
         };
         let q_target = Quaternion::identity(); // level target
-        let rates = ctrl.compute_angular_rates(q_target, &state, Seconds(0.1));
+        let rates = ctrl.compute_angular_rates(q_target, &state, 0.1.seconds());
         assert!(rates.y().raw() > 0.0, "should command nose up to level");
     }
 
@@ -1007,7 +1006,7 @@ mod flight_controller_tests {
             z: 0.0,
         };
         let q_target = Quaternion::identity(); // level target
-        let rates = ctrl.compute_angular_rates(q_target, &state, Seconds(0.1));
+        let rates = ctrl.compute_angular_rates(q_target, &state, 0.1.seconds());
         assert!(rates.x().raw() < 0.0, "should command left roll to level");
     }
 
@@ -1022,9 +1021,9 @@ mod flight_controller_tests {
 
         let result = ctrl.compute_drag_feedforward(VelocityNed::zero(), &Quaternion::identity());
 
-        assert_eq!(result.north().0, 0.0);
-        assert_eq!(result.east().0, 0.0);
-        assert_eq!(result.down().0, 0.0);
+        assert_eq!(result.north().raw(), 0.0);
+        assert_eq!(result.east().raw(), 0.0);
+        assert_eq!(result.down().raw(), 0.0);
     }
 
     #[test]
@@ -1043,12 +1042,12 @@ mod flight_controller_tests {
         // north = forward_drag * v * |v| = 0.5 * 4.0 * 4.0 = 8.0
         let tolerance = 1e-6;
         assert!(
-            (result.north().0 - 8.0).abs() < tolerance,
+            (result.north().raw() - 8.0).abs() < tolerance,
             "got {}",
-            result.north().0
+            result.north().raw()
         );
-        assert!(result.east().0.abs() < tolerance);
-        assert!(result.down().0.abs() < tolerance);
+        assert!(result.east().raw().abs() < tolerance);
+        assert!(result.down().raw().abs() < tolerance);
     }
 
     #[test]
@@ -1070,14 +1069,14 @@ mod flight_controller_tests {
         // east = 0.5 * 4.0 * 4.0 = 8.0
         let tolerance = 1e-3;
         assert!(
-            (result.east().0 - 8.0).abs() < tolerance,
+            (result.east().raw() - 8.0).abs() < tolerance,
             "east got {}",
-            result.east().0
+            result.east().raw()
         );
         assert!(
-            result.north().0.abs() < tolerance,
+            result.north().raw().abs() < tolerance,
             "north got {}",
-            result.north().0
+            result.north().raw()
         );
     }
 
@@ -1190,14 +1189,14 @@ mod flight_controller_tests {
 
         let tolerance = 1e-6;
         assert!(
-            drag_level.down().0.abs() < tolerance,
+            drag_level.down().raw().abs() < tolerance,
             "vertical drag should be zero with no vertical velocity (level): got {}",
-            drag_level.down().0
+            drag_level.down().raw()
         );
         assert!(
-            drag_pitched.down().0.abs() < tolerance,
+            drag_pitched.down().raw().abs() < tolerance,
             "vertical drag should be zero with no vertical velocity (pitched): got {}",
-            drag_pitched.down().0
+            drag_pitched.down().raw()
         );
     }
 }

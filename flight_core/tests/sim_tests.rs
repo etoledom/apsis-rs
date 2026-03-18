@@ -1,6 +1,7 @@
 use approx::assert_relative_eq;
 use flight_core::controller::*;
 use flight_core::simulator::*;
+use flight_core::units::traits::RawRepresentable;
 use flight_core::units::*;
 
 #[test]
@@ -20,8 +21,8 @@ fn hover() {
     }
 
     assert_relative_eq!(
-        simulator.state.altitude.0,
-        target_altitude.0,
+        simulator.state.altitude.raw(),
+        target_altitude.raw(),
         epsilon = 1e-2
     );
 }
@@ -43,8 +44,8 @@ fn north_velocity() {
     }
 
     assert_relative_eq!(
-        simulator.state.velocity_ned.north().0,
-        target_velocity.north().0,
+        simulator.state.velocity_ned.north().raw(),
+        target_velocity.north().raw(),
         epsilon = 1e-1
     );
 }
@@ -67,8 +68,8 @@ fn east_velocity() {
     }
 
     assert_relative_eq!(
-        simulator.state.velocity_ned.east().0,
-        target_velocity.east().0,
+        simulator.state.velocity_ned.east().raw(),
+        target_velocity.east().raw(),
         epsilon = 1e-1
     );
 }
@@ -94,20 +95,20 @@ fn increases_altitude_east_north_velocity() {
     }
 
     assert_relative_eq!(
-        simulator.state.velocity_ned.east().0,
-        target_velocity.east().0,
+        simulator.state.velocity_ned.east().raw(),
+        target_velocity.east().raw(),
         epsilon = 1e-1
     );
 
     assert_relative_eq!(
-        simulator.state.velocity_ned.east().0,
-        target_velocity.east().0,
+        simulator.state.velocity_ned.east().raw(),
+        target_velocity.east().raw(),
         epsilon = 1e-1
     );
 
     assert_relative_eq!(
-        simulator.state.altitude.0,
-        target_altitude.0,
+        simulator.state.altitude.raw(),
+        target_altitude.raw(),
         epsilon = 1e-1
     );
 }
@@ -157,7 +158,7 @@ fn position_target_overshoot_within_tolerance() {
     for _ in 0..3000 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
         simulator.tick(&inputs, delta_t);
-        max_north = max_north.max(simulator.state.position_ned.north().0);
+        max_north = max_north.max(simulator.state.position_ned.north().raw());
     }
 
     let overshoot = (max_north - target_north.raw()).max(0.0);
@@ -191,7 +192,7 @@ fn velocity_to_zero_overshoot_within_tolerance() {
 
     // Now command loiter — drone should decelerate and hold
     flight_controller.set_target_north(AxisTarget::Loiter);
-    let position_at_loiter = simulator.state.position_ned.north().0;
+    let position_at_loiter = simulator.state.position_ned.north().raw();
     let mut max_north = position_at_loiter;
 
     // One tick to trigger loiter capture inside the trajectory generator
@@ -207,7 +208,7 @@ fn velocity_to_zero_overshoot_within_tolerance() {
     for i in 0..2000 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
         simulator.tick(&inputs, delta_t);
-        max_north = max_north.max(simulator.state.position_ned.north().0);
+        max_north = max_north.max(simulator.state.position_ned.north().raw());
 
         if i % 10 == 0 {
             println!(

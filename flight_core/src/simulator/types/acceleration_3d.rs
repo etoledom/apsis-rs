@@ -4,9 +4,9 @@ use crate::{
     Quaternion,
     simulator::types::{vec2::Vec2, vec3::Vec3, velocity_ned::VelocityNed},
     units::{
-        acceleration::{Acceleration, AccelerationLiteral},
+        Acceleration, AccelerationLiteral, Seconds, Velocity,
         angles::Radians,
-        units::{Seconds, Velocity},
+        traits::{Initializable, RawRepresentable, UnitsArithmetics},
     },
 };
 
@@ -147,7 +147,11 @@ impl AccelerationNed {
         Self(Acceleration3D::new(north, east, down))
     }
     pub fn zero() -> Self {
-        Self::new(Acceleration(0.0), Acceleration(0.0), Acceleration(0.0))
+        Self::new(
+            Acceleration::zero(),
+            Acceleration::zero(),
+            Acceleration::zero(),
+        )
     }
     pub fn north(&self) -> Acceleration {
         self.0.x()
@@ -164,7 +168,7 @@ impl AccelerationNed {
     }
 
     pub fn norm(&self) -> Acceleration {
-        Acceleration(self.to_raw_vec3().norm())
+        Acceleration::new(self.to_raw_vec3().norm())
     }
     pub fn normalized(self) -> Vec3<f64> {
         self.to_raw_vec3().normalized()

@@ -6,6 +6,7 @@ use crate::{
     units::{
         SecondsLiteral,
         angles::{AngularAcceleration, Degrees, DegreesLiteral},
+        traits::Initializable,
     },
 };
 

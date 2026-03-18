@@ -1,5 +1,5 @@
 use eframe::egui::{self, vec2};
-use flight_core::units::Velocity;
+use flight_core::units::{Velocity, traits::RawRepresentable};
 
 use crate::{
     theme::{self, *},
@@ -19,12 +19,12 @@ impl VelocityIndicator {
     fn ground_speed(&self) -> f32 {
         (self.vel_north * self.vel_north + self.vel_east * self.vel_east)
             .sqrt()
-            .0 as f32
+            .raw() as f32
     }
 
     fn cardinal_direction(&self) -> &'static str {
         // atan2 gives angle from north in radians, convert to 0..360
-        let bearing = self.vel_east.0.atan2(self.vel_north.0).to_degrees();
+        let bearing = self.vel_east.raw().atan2(self.vel_north.raw()).to_degrees();
         let bearing = (bearing + 360.0) % 360.0;
         // 16-point compass rose, each sector is 22.5°
         // Offset by half a sector (11.25°) so N is centered at 0°
@@ -36,7 +36,7 @@ impl VelocityIndicator {
     }
 
     pub fn show(&self, ui: &mut egui::Ui) {
-        let (vel_north, vel_east) = (self.vel_north.0 as f32, self.vel_east.0 as f32);
+        let (vel_north, vel_east) = (self.vel_north.raw() as f32, self.vel_east.raw() as f32);
         let max_v = 10.0_f32;
         let bar_height = 8.0;
         let gnd_color = ACCENT;

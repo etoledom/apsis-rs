@@ -1,7 +1,7 @@
 use crate::{
     controller::pid::VelocityPID,
     simulator::types::{acceleration_3d::AccelerationNed, velocity_ned::VelocityNed},
-    units::units::Seconds,
+    units::Seconds,
 };
 
 pub struct VelocityNedController {
@@ -49,8 +49,7 @@ impl VelocityNedController {
 mod tests {
     use super::*;
     use crate::units::{
-        acceleration::AccelerationLiteral,
-        units::{SecondsLiteral, VelocityLiteral},
+        AccelerationLiteral, SecondsLiteral, VelocityLiteral, traits::RawRepresentable,
     };
 
     #[test]
@@ -69,11 +68,11 @@ mod tests {
         );
 
         assert!(
-            acc_target.north().0 > 0.0,
+            acc_target.north().raw() > 0.0,
             "feedforward should contribute positive north acceleration"
         );
-        assert_eq!(acc_target.east().0, 0.0);
-        assert_eq!(acc_target.down().0, 0.0);
+        assert_eq!(acc_target.east().raw(), 0.0);
+        assert_eq!(acc_target.down().raw(), 0.0);
     }
 
     #[test]
@@ -89,9 +88,9 @@ mod tests {
             0.1.seconds(),
         );
 
-        assert!(acc_target.north().0 > 1.0);
-        assert!(acc_target.east().0 > 1.0);
-        assert!(acc_target.down().0 > 1.0);
+        assert!(acc_target.north().raw() > 1.0);
+        assert!(acc_target.east().raw() > 1.0);
+        assert!(acc_target.down().raw() > 1.0);
     }
 
     #[test]
@@ -107,9 +106,9 @@ mod tests {
             0.1.seconds(),
         );
 
-        assert!(acc_target.north().0 < -1.0);
-        assert!(acc_target.east().0 < -1.0);
-        assert!(acc_target.down().0 < -1.0);
+        assert!(acc_target.north().raw() < -1.0);
+        assert!(acc_target.east().raw() < -1.0);
+        assert!(acc_target.down().raw() < -1.0);
     }
 
     #[test]
@@ -125,9 +124,9 @@ mod tests {
             0.1.seconds(),
         );
 
-        assert!(acc_target.north().0 < -1.0);
-        assert!(acc_target.east().0 > 1.0);
-        assert!(acc_target.down().0 < -1.0);
+        assert!(acc_target.north().raw() < -1.0);
+        assert!(acc_target.east().raw() > 1.0);
+        assert!(acc_target.down().raw() < -1.0);
     }
 
     #[test]
@@ -143,7 +142,7 @@ mod tests {
             0.00001.seconds(),
         );
 
-        assert!(acc_target.north().0.is_finite());
+        assert!(acc_target.north().raw().is_finite());
     }
 
     #[test]
@@ -164,9 +163,9 @@ mod tests {
         }
 
         assert!(
-            (current.north().0 - 10.0).abs() < 0.5,
+            (current.north().raw() - 10.0).abs() < 0.5,
             "Should converge to 10.0, but result was {}",
-            current.north().0
+            current.north().raw()
         );
     }
 
@@ -184,7 +183,7 @@ mod tests {
         );
 
         assert!(
-            acc.north().0 > 0.0,
+            acc.north().raw() > 0.0,
             "positive north velocity error should produce positive north acceleration"
         );
     }
@@ -203,7 +202,7 @@ mod tests {
         );
 
         assert!(
-            acc.east().0 > 0.0,
+            acc.east().raw() > 0.0,
             "positive east velocity error should produce positive east acceleration"
         );
     }
@@ -221,7 +220,7 @@ mod tests {
             0.1.seconds(),
         );
 
-        assert!(acc_target.down().0 < 0.0);
+        assert!(acc_target.down().raw() < 0.0);
     }
 
     #[test]
@@ -237,7 +236,7 @@ mod tests {
             0.1.seconds(),
         );
 
-        assert!(acc_target.down().0 > 0.0);
+        assert!(acc_target.down().raw() > 0.0);
     }
     #[test]
     fn drag_feedforward_contributes_to_output() {
@@ -250,12 +249,12 @@ mod tests {
             controller.update(current, AccelerationNed::zero(), drag_ff, 0.1.seconds());
 
         assert!(
-            acc_target.north().0 > 1.0,
+            acc_target.north().raw() > 1.0,
             "drag feedforward should contribute positive north acceleration, got {}",
-            acc_target.north().0
+            acc_target.north().raw()
         );
-        assert_eq!(acc_target.east().0, 0.0);
-        assert_eq!(acc_target.down().0, 0.0);
+        assert_eq!(acc_target.east().raw(), 0.0);
+        assert_eq!(acc_target.down().raw(), 0.0);
     }
 
     #[test]
@@ -269,11 +268,11 @@ mod tests {
             controller.update(current, AccelerationNed::zero(), drag_ff, 0.1.seconds());
 
         assert!(
-            acc_target.north().0 > 0.5,
+            acc_target.north().raw() > 0.5,
             "north drag ff should pass through"
         );
         assert!(
-            acc_target.east().0 > 0.2,
+            acc_target.east().raw() > 0.2,
             "east drag ff should pass through"
         );
     }
@@ -304,12 +303,13 @@ mod tests {
 
         let tolerance = 1e-6;
         assert!(
-            (acc_both.north().0 - (acc_drag_only.north().0 + acc_traj_only.north().0)).abs()
+            (acc_both.north().raw() - (acc_drag_only.north().raw() + acc_traj_only.north().raw()))
+                .abs()
                 < tolerance,
             "feedforwards should combine additively: both={}, drag={} + traj={}",
-            acc_both.north().0,
-            acc_drag_only.north().0,
-            acc_traj_only.north().0,
+            acc_both.north().raw(),
+            acc_drag_only.north().raw(),
+            acc_traj_only.north().raw(),
         );
     }
 }

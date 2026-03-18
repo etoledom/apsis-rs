@@ -4,7 +4,7 @@ use crate::{
         force_model::{context::Context, force_model::ForceModel},
         types::acceleration_3d::AccelerationNed,
     },
-    units::{consts::G_EARTH, units::Seconds},
+    units::{Seconds, consts::G_EARTH},
 };
 
 pub struct GravityModel;
@@ -23,7 +23,7 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for GravityModel {
 mod tests {
     use crate::{
         simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State},
-        units::units::SecondsLiteral,
+        units::{SecondsLiteral, traits::RawRepresentable},
     };
 
     use super::*;
@@ -41,8 +41,19 @@ mod tests {
         };
         let acc = model.acceleration_contribution(&ctx, 1.0.seconds());
 
-        assert_eq!(acc.north().0, 0.0, "gravity should have no north component");
-        assert_eq!(acc.east().0, 0.0, "gravity should have no east component");
-        assert!(acc.down().0 > 0.0, "gravity should be positive down in NED");
+        assert_eq!(
+            acc.north().raw(),
+            0.0,
+            "gravity should have no north component"
+        );
+        assert_eq!(
+            acc.east().raw(),
+            0.0,
+            "gravity should have no east component"
+        );
+        assert!(
+            acc.down().raw() > 0.0,
+            "gravity should be positive down in NED"
+        );
     }
 }

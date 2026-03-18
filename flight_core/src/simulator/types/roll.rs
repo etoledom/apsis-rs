@@ -20,8 +20,8 @@ impl Roll {
 }
 
 impl Initializable for Roll {
-    fn new(value: f64) -> Self {
-        Self::clamp(value)
+    fn new(value: impl Into<f64>) -> Self {
+        Self::clamp(value.into())
     }
 }
 

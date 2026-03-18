@@ -1,4 +1,4 @@
-use crate::units::{acceleration::Acceleration, units::Meters};
+use crate::units::{Meters, acceleration::Acceleration};
 
-pub const G_EARTH: Acceleration = Acceleration(9.80665);
-pub const EARTH_RADIUS: Meters = Meters(6371000.0);
+pub const G_EARTH: Acceleration = Acceleration::gravity();
+pub const EARTH_RADIUS: Meters = Meters::radius_earth();

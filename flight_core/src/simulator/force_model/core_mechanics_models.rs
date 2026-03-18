@@ -7,7 +7,7 @@ use crate::{
         },
         types::acceleration_3d::AccelerationNed,
     },
-    units::units::Seconds,
+    units::Seconds,
 };
 
 pub struct CoreMechanicsModel {

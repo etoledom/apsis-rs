@@ -5,7 +5,7 @@ use crate::{
         angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed,
         quaternion::Quaternion, vec2::Vec2, velocity_ned::VelocityNed,
     },
-    units::units::{Meters, Velocity},
+    units::{Meters, Velocity},
 };
 
 #[derive(Clone, Copy)]

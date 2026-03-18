@@ -16,8 +16,7 @@ use crate::{
         },
     },
     units::{
-        consts::EARTH_RADIUS,
-        units::{Meters, Seconds, Velocity},
+        MetersLiteral, Seconds, VelocityLiteral, consts::EARTH_RADIUS, traits::RawRepresentable,
     },
 };
 
@@ -57,7 +56,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
     }
 
     fn update_battery_state(&mut self, delta_t: Seconds, inputs: &Inputs) {
-        let battery_drain_pct = self.drone.battery_drain_pct(inputs.throttle) * delta_t.0;
+        let battery_drain_pct = self.drone.battery_drain_pct(inputs.throttle) * delta_t.raw();
         self.state.battery_pct -= battery_drain_pct;
         self.state.battery_pct = self.state.battery_pct.max(0.0);
     }
@@ -86,9 +85,9 @@ impl<DroneType: Drone> Simulator<DroneType> {
             velocity_ned_old * delta_t + (acceleration * delta_t) * delta_t * 0.5;
         self.state.altitude = -self.state.position_ned.down();
 
-        if self.state.velocity_ned.down().0 > 0.0 && self.state.altitude.0 < 0.0 {
-            self.state.velocity_ned.update_down(Velocity(0.0));
-            self.state.altitude = Meters::zero();
+        if self.state.velocity_ned.down().raw() > 0.0 && self.state.altitude.raw() < 0.0 {
+            self.state.velocity_ned.update_down(0.mps());
+            self.state.altitude = 0.meters();
         }
     }
 
@@ -138,7 +137,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
         let quat_dot = (self.state.attitude * quat_omega) * 0.5;
 
         // 5-6.
-        let attitude = (self.state.attitude + quat_dot * dt.0).normalized();
+        let attitude = (self.state.attitude + quat_dot * dt.raw()).normalized();
 
         let clamped_attitude = attitude.clamped(
             self.drone.max_pitch().to_radians(),
@@ -174,10 +173,10 @@ mod tests {
             },
         },
         units::{
-            MetersLiteral,
+            Meters, MetersLiteral, SecondsLiteral, Velocity,
             angles::{Degrees, DegreesLiteral},
             consts::G_EARTH,
-            units::{Meters, SecondsLiteral},
+            traits::UnitsArithmetics,
         },
     };
 
@@ -203,14 +202,14 @@ mod tests {
 
         let mut simulator = Simulator::new(drone);
         simulator.state.position_ned =
-            PositionNed::new(Meters::zero(), Meters::zero(), Meters(-1.0));
+            PositionNed::new(Meters::zero(), Meters::zero(), -1.meters());
 
         for _ in 0..100 {
             simulator.tick(&inputs, 0.02.seconds());
         }
 
-        assert_relative_eq!(simulator.state.altitude.0, 1.0);
-        assert_relative_eq!(simulator.state.velocity_ned.down().0, 0.0);
+        assert_relative_eq!(simulator.state.altitude.raw(), 1.0);
+        assert_relative_eq!(simulator.state.velocity_ned.down().raw(), 0.0);
     }
 
     #[test]
@@ -233,10 +232,13 @@ mod tests {
             println!("altitude: {}", simulator.state.altitude);
         }
 
-        assert_relative_eq!(simulator.state.velocity_ned.ground_speed().east().0, 0.0);
         assert_relative_eq!(
-            simulator.state.velocity_ned.ground_speed().north().0,
-            expected.0,
+            simulator.state.velocity_ned.ground_speed().east().raw(),
+            0.0
+        );
+        assert_relative_eq!(
+            simulator.state.velocity_ned.ground_speed().north().raw(),
+            expected.raw(),
             epsilon = 1e-2
         );
     }
@@ -288,8 +290,8 @@ mod tests {
         }
 
         assert_relative_eq!(
-            simulator.state.velocity_ned.down().0,
-            expected.0,
+            simulator.state.velocity_ned.down().raw(),
+            expected.raw(),
             epsilon = 1e-2
         );
 
@@ -298,8 +300,8 @@ mod tests {
         }
 
         assert_relative_eq!(
-            simulator.state.velocity_ned.down().0,
-            expected.0,
+            simulator.state.velocity_ned.down().raw(),
+            expected.raw(),
             epsilon = 1e-2
         );
     }
@@ -311,17 +313,17 @@ mod tests {
         let input = Inputs::default();
 
         simulator.state.position_ned =
-            PositionNed::new(Meters::zero(), Meters::zero(), Meters(-100.0));
+            PositionNed::new(Meters::zero(), Meters::zero(), -100.meters());
 
         for _ in 0..200 {
             simulator.tick(&input, 0.01.seconds());
         }
 
         // (G / drag_coef_vertical)^2
-        let expected = (G_EARTH.0 / drone.drag_coefficient().vertical.value().0).sqrt();
+        let expected = (G_EARTH.raw() / drone.drag_coefficient().vertical.value().raw()).sqrt();
 
         assert_relative_eq!(
-            simulator.state.velocity_ned.down().0,
+            simulator.state.velocity_ned.down().raw(),
             expected,
             epsilon = 1e-2
         );
@@ -338,12 +340,12 @@ mod tests {
             ..Default::default()
         };
 
-        let dt = Seconds(0.1);
+        let dt = 0.1.seconds();
         for i in 0..40 {
             sim.tick(&inputs, dt);
             println!(
                 "t={:.1} pitch={:.2} pitch_rate={:.3}, v_angular: {:.3}",
-                i as f64 * dt.0,
+                i as f64 * dt.raw(),
                 sim.state.attitude.pitch().to_degrees().0,
                 sim.state.angular_velocity_body.y().raw(),
                 sim.state.angular_velocity_body.y().raw()
@@ -383,7 +385,11 @@ mod tests {
 
         let expected = terminal_forward_velocity(drone, drone.max_pitch());
 
-        assert_relative_eq!(sim.state.velocity_ned.north().0, expected.0, epsilon = 1e-2);
+        assert_relative_eq!(
+            sim.state.velocity_ned.north().raw(),
+            expected.raw(),
+            epsilon = 1e-2
+        );
         assert_relative_eq!(
             sim.state.attitude.pitch().to_degrees().0,
             -45.0,
@@ -401,8 +407,8 @@ mod tests {
         }
 
         assert_relative_eq!(
-            sim.state.velocity_ned.north().0,
-            -expected.0,
+            sim.state.velocity_ned.north().raw(),
+            -expected.raw(),
             epsilon = 1e-2
         );
         assert_relative_eq!(
@@ -424,7 +430,7 @@ mod tests {
             z: 0.0,
         };
 
-        let dt = Seconds(0.1);
+        let dt = 0.1.seconds();
 
         // Phase 1: roll right until terminal velocity
         println!("--- Phase 1: rolling right ---");
@@ -437,10 +443,10 @@ mod tests {
             sim.tick(&right_inputs, dt);
             println!(
                 "t={:.1} roll={:.2} roll_rate={:.4} v_east={:.2}",
-                i as f64 * dt.0,
+                i as f64 * dt.raw(),
                 sim.state.attitude.roll().to_degrees().0,
                 sim.state.angular_velocity_body.x().raw(),
-                sim.state.velocity_ned.east().0,
+                sim.state.velocity_ned.east().raw(),
             );
         }
 
@@ -455,10 +461,10 @@ mod tests {
             sim.tick(&left_inputs, dt);
             println!(
                 "t={:.1} roll={:.2} roll_rate={:.4} v_east={:.2}",
-                (50 + i) as f64 * dt.0,
+                (50 + i) as f64 * dt.raw(),
                 sim.state.attitude.roll().to_degrees().0,
                 sim.state.angular_velocity_body.x().raw(),
-                sim.state.velocity_ned.east().0,
+                sim.state.velocity_ned.east().raw(),
             );
         }
     }

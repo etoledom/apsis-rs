@@ -1,10 +1,9 @@
 use crate::{
     simulator::types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
     units::{
-        acceleration::Acceleration,
+        Acceleration, Meters, Velocity,
         angles::{AngularVelocity, Radians},
         traits::{Initializable, RawRepresentable},
-        units::{Meters, Velocity},
     },
 };
 
@@ -44,19 +43,19 @@ impl From<i32> for LinearGain {
 
 impl Gain<Meters, Velocity> for LinearGain {
     fn apply(&self, value: Meters) -> Velocity {
-        Velocity(self.0 * value.0)
+        Velocity::new(self.0 * value.raw())
     }
 }
 
 impl Gain<Velocity, Throttle> for LinearGain {
     fn apply(&self, value: Velocity) -> Throttle {
-        Throttle::clamp(self.0 * value.0)
+        Throttle::clamp(self.0 * value.raw())
     }
 }
 
 impl Gain<Velocity, Radians> for LinearGain {
     fn apply(&self, value: Velocity) -> Radians {
-        Radians(self.0 * value.0)
+        Radians(self.0 * value.raw())
     }
 }
 
@@ -68,7 +67,7 @@ impl Gain<Radians, Pitch> for LinearGain {
 
 impl Gain<Velocity, Acceleration> for LinearGain {
     fn apply(&self, value: Velocity) -> Acceleration {
-        Acceleration(self.0 * value.0)
+        Acceleration::new(self.0 * value.raw())
     }
 }
 
@@ -114,7 +113,7 @@ impl Converter {
 
 impl Gain<Acceleration, Velocity> for LinearGain {
     fn apply(&self, value: Acceleration) -> Velocity {
-        Velocity(self.0 * value.raw())
+        Velocity::new(self.0 * value.raw())
     }
 }
 
@@ -138,7 +137,7 @@ impl Gain<Yaw, AngularVelocity> for LinearGain {
 
 impl Gain<Velocity, Meters> for LinearGain {
     fn apply(&self, value: Velocity) -> Meters {
-        Meters(self.0 * value.0)
+        Meters::new(self.0 * value.raw())
     }
 }
 
@@ -152,15 +151,17 @@ impl Gain<AngularVelocity, Radians> for LinearGain {
 mod tests {
     use approx::assert_relative_eq;
 
+    use crate::units::MetersLiteral;
+
     use super::*;
 
     #[test]
     fn linear_gain_scales_correctly() {
         let gain = LinearGain::new(2.0);
-        let distance = Meters(3.0);
+        let distance = 3.meters();
 
         let output = gain.apply(distance);
 
-        assert_relative_eq!(output.0, 6.0, epsilon = 1e-6);
+        assert_relative_eq!(output.raw(), 6.0, epsilon = 1e-6);
     }
 }

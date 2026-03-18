@@ -1,10 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 
-use crate::units::{
-    acceleration::Acceleration,
-    angles::Radians,
-    units::{Seconds, Velocity},
-};
+use crate::units::{Acceleration, Seconds, Velocity, angles::Radians};
 
 #[derive(Clone, Copy)]
 pub struct Vec2<T> {

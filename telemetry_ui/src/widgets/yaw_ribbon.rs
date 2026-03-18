@@ -1,7 +1,7 @@
 use crate::theme;
 use eframe::egui;
 use egui::{Stroke, pos2, vec2};
-use flight_core::units::angles::Degrees;
+use flight_core::units::{angles::Degrees, traits::RawRepresentable};
 
 pub struct YawRibbon {
     pub yaw: Degrees, // degrees, 0-360
@@ -29,7 +29,7 @@ impl YawRibbon {
         // How many degrees are visible on each side of center
         let visible_deg = (width / 2.0 / px_per_deg) as i32 + 10;
 
-        let current_deg = (self.yaw.raw_f32() * 10.0).round() / 10.0;
+        let current_deg = (self.yaw.raw() as f32 * 10.0).round() / 10.0;
 
         let anchor = (current_deg / 10.0) as i32 * 10;
         let first_tick = anchor as f32 - (visible_deg as f32 * 10.0);

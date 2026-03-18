@@ -1,6 +1,9 @@
 use std::ops::Add;
 
-use crate::units::{acceleration::Acceleration, traits::RawRepresentable};
+use crate::units::{
+    acceleration::Acceleration,
+    traits::{Initializable, RawRepresentable},
+};
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Default, Debug, PartialEq, PartialOrd)]
@@ -12,7 +15,7 @@ impl AccelerationSquare {
     }
 
     pub fn sqrt(self) -> Acceleration {
-        Acceleration(self.0.sqrt())
+        Acceleration::new(self.0.sqrt())
     }
 }
 

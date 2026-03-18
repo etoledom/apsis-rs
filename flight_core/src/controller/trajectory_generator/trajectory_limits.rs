@@ -1,7 +1,4 @@
-use crate::{
-    Jerk,
-    units::{Seconds, Velocity, acceleration::Acceleration},
-};
+use crate::units::{Acceleration, Jerk, Seconds, Velocity};
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct TrajectoryLimits {

@@ -43,18 +43,16 @@ fn main() -> eframe::Result {
                 let vel_target_ned = vel_target_frd.to_world_frame(&simulator.state.attitude);
 
                 // If there's no command from the pilot, use Lotier mode to hold position.
-                if target.up.0 == 0.0 {
+                if target.up == 0.mps() {
                     controller.set_target_down(AxisTarget::Loiter);
-                } else if target.up.0 != 0.0 {
+                } else if target.up != 0.mps() {
                     controller.set_target_down(AxisTarget::Velocity(-target.up));
                 }
 
-                if target.forward.0 != 0.0 || target.right.0 != 0.0 {
-                    println!("Setting VELOCITY");
+                if target.forward != 0.mps() || target.right != 0.mps() {
                     controller.set_target_north(AxisTarget::Velocity(vel_target_ned.north()));
                     controller.set_target_east(AxisTarget::Velocity(vel_target_ned.east()));
                 } else {
-                    println!("Setting LOTIER");
                     controller.set_target_north(AxisTarget::Loiter);
                     controller.set_target_east(AxisTarget::Loiter);
                 }

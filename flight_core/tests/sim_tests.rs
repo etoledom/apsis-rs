@@ -1,8 +1,7 @@
 use approx::assert_relative_eq;
 use flight_core::controller::*;
 use flight_core::simulator::*;
-use flight_core::units::traits::RawRepresentable;
-use flight_core::units::*;
+use primitives::prelude::*;
 
 #[test]
 fn hover() {

@@ -1,4 +1,9 @@
-use crate::{PositionNed, VelocityNed, controller::pid::PositionPID, units::Seconds};
+use primitives::{
+    frames::{PositionNed, VelocityNed},
+    units::Seconds,
+};
+
+use crate::controller::pid::PositionPID;
 
 pub struct PositionController {
     north_pid: PositionPID,
@@ -31,7 +36,7 @@ impl PositionController {
 
 #[cfg(test)]
 mod tests {
-    use crate::units::{MetersLiteral, SecondsLiteral, VelocityLiteral, traits::RawRepresentable};
+    use primitives::prelude::*;
 
     use super::*;
 

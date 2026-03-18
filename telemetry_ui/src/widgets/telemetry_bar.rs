@@ -3,7 +3,8 @@ use crate::{
     widgets::components::{data_label::DataLabel, status_box::StatusBox},
 };
 use eframe::egui;
-use flight_core::{state::State, units::traits::RawRepresentable};
+use flight_core::state::State;
+use primitives::traits::RawRepresentable;
 
 pub struct TelemetryBar<'a> {
     pub state: &'a Option<State>,
@@ -86,13 +87,13 @@ impl<'a> TelemetryBar<'a> {
 
                     // ── INPUTS ──
                     //
-                    DataLabel::new(state.last_inputs.throttle.get() as f32)
+                    DataLabel::new(state.last_inputs.throttle.raw() as f32)
                         .label("THR:")
                         .show(ui);
-                    DataLabel::new(state.last_inputs.pitch.get() as f32)
+                    DataLabel::new(state.last_inputs.pitch.raw() as f32)
                         .label("P:")
                         .show(ui);
-                    DataLabel::new(state.last_inputs.roll.get() as f32)
+                    DataLabel::new(state.last_inputs.roll.raw() as f32)
                         .label("R:")
                         .show(ui);
 

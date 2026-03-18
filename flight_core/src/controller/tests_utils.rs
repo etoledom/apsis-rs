@@ -1,8 +1,6 @@
-use crate::{
-    AngularDamping, Drag, Drone, Throttle,
-    drone::DragCoefficient,
-    units::{angles::*, traits::Initializable, *},
-};
+use primitives::{control::Throttle, traits::Initializable, units::*};
+
+use crate::{Drone, drone::DragCoefficient};
 
 #[derive(Clone, Copy)]
 pub struct TestDrone;

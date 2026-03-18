@@ -1,5 +1,5 @@
 use eframe::egui::{self, Align2, FontId, Sense, Stroke, Vec2, pos2};
-use flight_core::units::{Meters, traits::RawRepresentable};
+use primitives::{traits::RawRepresentable, units::Meters};
 
 use crate::theme::*;
 

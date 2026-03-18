@@ -1,13 +1,12 @@
-use crate::{
-    controller::{
-        FlightTarget,
-        trajectory_generator::{
-            axis_trajectory::AxisTrajectory,
-            s_curve_profile::{SCurveProfile, SCurveSetpoint},
-            trajectory_limits::TrajectoryLimits,
-        },
+use primitives::units::{PerSecond, Seconds};
+
+use crate::controller::{
+    FlightTarget,
+    trajectory_generator::{
+        axis_trajectory::AxisTrajectory,
+        s_curve_profile::{SCurveProfile, SCurveSetpoint},
+        trajectory_limits::TrajectoryLimits,
     },
-    units::{PerSecond, Seconds},
 };
 
 pub struct TrajectoryGenerator {
@@ -71,13 +70,8 @@ impl TrajectoryGenerator {
 #[cfg(test)]
 mod trajectory_generator_tests {
     use super::*;
-    use crate::{
-        controller::AxisTarget,
-        units::{
-            AccelerationLiteral, JerkLiteral, MetersLiteral, PerSecond, SecondsLiteral,
-            VelocityLiteral, traits::RawRepresentable,
-        },
-    };
+    use crate::controller::AxisTarget;
+    use primitives::prelude::*;
 
     #[test]
     fn generator_dispatches_to_all_axes() {

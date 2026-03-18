@@ -4,10 +4,8 @@ use std::{
 };
 
 use eframe::egui::{self, vec2};
-use flight_core::{
-    state::State,
-    units::{angles::Degrees, traits::RawRepresentable},
-};
+use flight_core::state::State;
+use primitives::{traits::RawRepresentable, units::Degrees};
 
 use crate::{
     pilot_control::controller::{Controller, KeyboardController, Target},

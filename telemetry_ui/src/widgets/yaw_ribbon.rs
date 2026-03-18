@@ -1,7 +1,7 @@
 use crate::theme;
 use eframe::egui;
 use egui::{Stroke, pos2, vec2};
-use flight_core::units::{angles::Degrees, traits::RawRepresentable};
+use primitives::{traits::RawRepresentable, units::Degrees};
 
 pub struct YawRibbon {
     pub yaw: Degrees, // degrees, 0-360

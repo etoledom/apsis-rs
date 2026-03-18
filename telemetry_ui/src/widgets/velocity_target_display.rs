@@ -1,5 +1,5 @@
 use eframe::egui::{self, vec2};
-use flight_core::units::traits::RawRepresentable;
+use primitives::traits::RawRepresentable;
 
 use crate::{
     pilot_control::controller::Target,

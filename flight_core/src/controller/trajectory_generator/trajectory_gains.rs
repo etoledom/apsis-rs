@@ -1,4 +1,4 @@
-use crate::units::PerSecond;
+use primitives::units::PerSecond;
 
 pub struct TrajectoryGains {
     pub position: PerSecond,

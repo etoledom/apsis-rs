@@ -1,7 +1,6 @@
-use crate::units::{
-    Acceleration, AccelerationLiteral, Jerk, JerkLiteral, Meters, Seconds, SecondsLiteral,
-    Velocity, VelocityLiteral,
+use primitives::{
     traits::{RawRepresentable, UnitsArithmetics},
+    units::*,
 };
 
 pub struct SCurveSetpoint {
@@ -333,7 +332,7 @@ impl SCurveProfile {
 
 #[cfg(test)]
 mod tests {
-    use crate::units::{MetersLiteral, SecondsLiteral, traits::RawRepresentable};
+    use primitives::units::{MetersLiteral, SecondsLiteral};
 
     use super::*;
 

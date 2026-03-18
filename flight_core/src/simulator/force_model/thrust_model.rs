@@ -1,13 +1,13 @@
-use crate::{
-    simulator::{
-        drone::Drone,
-        force_model::{context::Context, force_model::ForceModel},
-        types::{acceleration_3d::AccelerationNed, quaternion::Quaternion},
-    },
-    units::{
-        Acceleration, Seconds,
-        traits::{Initializable, RawRepresentable},
-    },
+use primitives::{
+    frames::AccelerationNed,
+    math::Quaternion,
+    traits::{Initializable, RawRepresentable},
+    units::{Acceleration, Seconds},
+};
+
+use crate::simulator::{
+    drone::Drone,
+    force_model::{context::Context, force_model::ForceModel},
 };
 
 pub struct ThrustModel;
@@ -21,7 +21,7 @@ impl<'a, Vehicle: Drone> ForceModel<Vehicle> for ThrustModel {
 
         let inputs = ctx.inputs;
 
-        let base_acceleration = inputs.throttle.get() * ctx.vehicle.max_thrust_acceleration();
+        let base_acceleration = inputs.throttle.raw() * ctx.vehicle.max_thrust_acceleration();
         // Body frame thrust is always down, independent of the body rotation.
         let thrust_body_frame = Quaternion::pure(0.0, 0.0, -base_acceleration.raw());
         let conjugate = ctx.state.attitude.conjugate();
@@ -43,13 +43,9 @@ mod tests {
     use std::f64::consts::{FRAC_PI_4, FRAC_PI_8};
 
     use approx::assert_relative_eq;
+    use primitives::{prelude::*, units::consts::G_EARTH};
 
-    use crate::{
-        simulator::{
-            default_drone::DefaultDrone, inputs::Inputs, state::State, types::throttle::Throttle,
-        },
-        units::{SecondsLiteral, angles::DegreesLiteral, consts::G_EARTH},
-    };
+    use crate::simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State};
 
     use super::*;
 

@@ -6,11 +6,13 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 use flight_core::{
     controller::{AxisTarget, FlightController},
-    units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
-    velocity_frd::VelocityFrd,
     *,
 };
 mod sim_ui;
+use primitives::{
+    frames::VelocityFrd,
+    units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
+};
 use sim_ui::*;
 
 use crate::pilot_control::controller::Target;

@@ -1,6 +1,6 @@
-use crate::{
-    controller::pid::VelocityPID,
-    simulator::types::{acceleration_3d::AccelerationNed, velocity_ned::VelocityNed},
+use crate::controller::pid::VelocityPID;
+use primitives::{
+    frames::{AccelerationNed, VelocityNed},
     units::Seconds,
 };
 
@@ -48,9 +48,7 @@ impl VelocityNedController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::units::{
-        AccelerationLiteral, SecondsLiteral, VelocityLiteral, traits::RawRepresentable,
-    };
+    use primitives::prelude::*;
 
     #[test]
     fn feedforward_contributes_to_output() {

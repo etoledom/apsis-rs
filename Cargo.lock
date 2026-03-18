@@ -1066,6 +1066,7 @@ name = "flight_core"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "primitives",
 ]
 
 [[package]]
@@ -2315,6 +2316,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "primitives"
+version = "0.1.0"
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2731,6 +2736,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "flight_core",
+ "primitives",
 ]
 
 [[package]]

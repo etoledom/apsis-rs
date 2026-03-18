@@ -1,9 +1,9 @@
 use crate::{theme, widgets::components::data_label::DataLabel};
 use eframe::egui;
 use egui::{Painter, Pos2, Stroke, pos2, vec2};
-use flight_core::units::{
-    angles::{Degrees, Radians},
+use primitives::{
     traits::RawRepresentable,
+    units::{Degrees, Radians},
 };
 
 pub struct AttitudeIndicator {

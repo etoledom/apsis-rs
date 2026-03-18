@@ -1,11 +1,12 @@
-use crate::{
-    AccelerationFrd, VelocityNed,
-    simulator::{
-        drone::Drone,
-        force_model::{context::Context, force_model::ForceModel},
-        types::acceleration_3d::AccelerationNed,
-    },
-    units::{AccelerationLiteral, Seconds, VelocityLiteral, traits::UnitsArithmetics},
+use primitives::{
+    frames::{AccelerationFrd, AccelerationNed, VelocityNed},
+    traits::UnitsArithmetics,
+    units::{AccelerationLiteral, Seconds, VelocityLiteral},
+};
+
+use crate::simulator::{
+    drone::Drone,
+    force_model::{context::Context, force_model::ForceModel},
 };
 
 pub struct DragModel;
@@ -29,13 +30,13 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for DragModel {
         // - Calculate horizontal drag in body frame
         // - Rotate horizontal drag back to world frame
         let vel_h_body = VelocityNed::new(velocity_ned.north(), velocity_ned.east(), 0.mps())
-            .to_body_frame(&ctx.state.attitude);
+            .to_frd(&ctx.state.attitude);
         let drag_h_world = AccelerationFrd::new(
             -(vel_h_body.forward() * vel_h_body.forward().abs() * drag.forward.value()),
             -(vel_h_body.right() * vel_h_body.right().abs() * drag.horizontal.value()),
             0.mps2(),
         )
-        .to_world_frame(&ctx.state.attitude);
+        .to_ned(&ctx.state.attitude);
 
         // - Calculate vertical drag in world frame
         let drag_v_world =
@@ -48,17 +49,9 @@ impl<Vehicle: Drone> ForceModel<Vehicle> for DragModel {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        PositionNed, Quaternion,
-        simulator::{
-            default_drone::DefaultDrone, inputs::Inputs, state::State,
-            types::velocity_ned::VelocityNed,
-        },
-        units::{
-            MetersLiteral, SecondsLiteral, VelocityLiteral, angles::DegreesLiteral,
-            traits::RawRepresentable,
-        },
-    };
+    use crate::simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State};
+
+    use primitives::prelude::*;
 
     use super::*;
 

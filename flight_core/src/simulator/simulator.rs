@@ -1,23 +1,18 @@
-use crate::{
-    Yaw,
-    simulator::{
-        drone::Drone,
-        force_model::{
-            context::Context, core_mechanics_models::CoreMechanicsModel, force_model::ForceModel,
-        },
-        inputs::Inputs,
-        state::State,
-        types::{
-            acceleration_3d::{AccelerationNed, WorldFrameGroundVelocity},
-            angular_acceleration_frd::AngularAccelerationFrd,
-            pitch::Pitch,
-            quaternion::Quaternion,
-            roll::Roll,
-        },
+use primitives::{
+    control::*,
+    frames::{AccelerationNed, AngularAccelerationFrd, GroundVelocityNed},
+    math::Quaternion,
+    traits::RawRepresentable,
+    units::{MetersLiteral, Seconds, VelocityLiteral, consts::EARTH_RADIUS},
+};
+
+use crate::simulator::{
+    drone::Drone,
+    force_model::{
+        context::Context, core_mechanics_models::CoreMechanicsModel, force_model::ForceModel,
     },
-    units::{
-        MetersLiteral, Seconds, VelocityLiteral, consts::EARTH_RADIUS, traits::RawRepresentable,
-    },
+    inputs::Inputs,
+    state::State,
 };
 
 pub struct Simulator<DroneType: Drone> {
@@ -50,7 +45,7 @@ impl<DroneType: Drone> Simulator<DroneType> {
         self.state.acceleration_ned = self.net_acceleration(delta_t, inputs);
         self.integrate(self.state.acceleration_ned, delta_t);
 
-        self.update_horizontal_position(self.state.velocity_ned.ground_speed(), delta_t);
+        self.update_horizontal_position(self.state.velocity_ned.ground_velocity(), delta_t);
         self.update_battery_state(delta_t, inputs);
         self.state.last_inputs = inputs.clone();
     }
@@ -91,14 +86,10 @@ impl<DroneType: Drone> Simulator<DroneType> {
         }
     }
 
-    fn update_horizontal_position(
-        &mut self,
-        ground_sleed: WorldFrameGroundVelocity,
-        delta_t: Seconds,
-    ) {
+    fn update_horizontal_position(&mut self, ground_velocity: GroundVelocityNed, delta_t: Seconds) {
         // Distance traveled North/East
-        let north_distance = ground_sleed.north() * delta_t;
-        let east_distance = ground_sleed.east() * delta_t;
+        let north_distance = ground_velocity.north() * delta_t;
+        let east_distance = ground_velocity.east() * delta_t;
 
         // Lat/Lon delta (simple spherical approx)
         self.state.latitude += north_distance / EARTH_RADIUS;
@@ -115,13 +106,13 @@ impl<DroneType: Drone> Simulator<DroneType> {
         let drone = &self.drone;
 
         // 1.
-        let pitch_acceleration = drone.max_pitch_acceleration() * pitch.get()
+        let pitch_acceleration = drone.max_pitch_acceleration() * pitch.raw()
             - (drone.pitch_damping_coefficient() * self.state.angular_velocity_body.y());
 
-        let roll_acceleration = drone.max_roll_acceleration() * roll.get()
+        let roll_acceleration = drone.max_roll_acceleration() * roll.raw()
             - drone.roll_damping_coefficient() * self.state.angular_velocity_body.x();
 
-        let yaw_acceleration = drone.max_yaw_acceleration() * yaw.get()
+        let yaw_acceleration = drone.max_yaw_acceleration() * yaw.raw()
             - drone.yaw_damping_coefficient() * self.state.angular_velocity_body.z();
 
         let angular_acceleration =
@@ -164,23 +155,10 @@ impl<DroneType: Drone> Simulator<DroneType> {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::{
-        controller::tests_utils::TestDrone,
-        simulator::{
-            default_drone::DefaultDrone,
-            types::{
-                pitch::Pitch, position_ned::PositionNed, roll::Roll, throttle::Throttle, yaw::Yaw,
-            },
-        },
-        units::{
-            Meters, MetersLiteral, SecondsLiteral, Velocity,
-            angles::{Degrees, DegreesLiteral},
-            consts::G_EARTH,
-            traits::UnitsArithmetics,
-        },
-    };
+    use crate::{controller::tests_utils::TestDrone, simulator::default_drone::DefaultDrone};
 
     use super::*;
+    use primitives::{prelude::*, units::consts::G_EARTH};
 
     fn terminal_forward_velocity(drone: impl Drone, angle: Degrees) -> Velocity {
         // v_north = sqrt(g * sin(θ) / (k_forward * cos³(θ)))
@@ -232,12 +210,9 @@ mod tests {
             println!("altitude: {}", simulator.state.altitude);
         }
 
+        assert_relative_eq!(simulator.state.velocity_ned.east().raw(), 0.0);
         assert_relative_eq!(
-            simulator.state.velocity_ned.ground_speed().east().raw(),
-            0.0
-        );
-        assert_relative_eq!(
-            simulator.state.velocity_ned.ground_speed().north().raw(),
+            simulator.state.velocity_ned.north().raw(),
             expected.raw(),
             epsilon = 1e-2
         );

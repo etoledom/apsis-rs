@@ -1,32 +1,26 @@
-use crate::{
-    simulator::{
-        drone::Drone,
-        force_model::{context::Context, force_model::ForceModel},
-        types::acceleration_3d::AccelerationNed,
-    },
+use primitives::{
+    frames::AccelerationNed,
     units::{Seconds, consts::G_EARTH},
+};
+
+use crate::simulator::{
+    drone::Drone,
+    force_model::{context::Context, force_model::ForceModel},
 };
 
 pub struct GravityModel;
 
 impl<Vehicle: Drone> ForceModel<Vehicle> for GravityModel {
-    fn acceleration_contribution<'a>(
-        &self,
-        _: &Context<Vehicle>,
-        _: Seconds,
-    ) -> crate::simulator::types::acceleration_3d::AccelerationNed {
+    fn acceleration_contribution<'a>(&self, _: &Context<Vehicle>, _: Seconds) -> AccelerationNed {
         AccelerationNed::from_down(G_EARTH)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State},
-        units::{SecondsLiteral, traits::RawRepresentable},
-    };
-
     use super::*;
+    use crate::simulator::{default_drone::DefaultDrone, inputs::Inputs, state::State};
+    use primitives::prelude::*;
 
     #[test]
     fn gravity_always_points_down() {

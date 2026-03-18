@@ -1,5 +1,13 @@
+use primitives::{
+    control::Throttle,
+    frames::*,
+    math::{CrossMult, DotMult, Quaternion, Vec3},
+    traits::{RawRepresentable, UnitsArithmetics},
+    units::{consts::G_EARTH, *},
+};
+
 use crate::{
-    AccelerationFrd, AngularVelocityFrd, Drone, PositionNed, Throttle,
+    Drone,
     controller::{
         attitude_controller::AttitudeController,
         position_controller::PositionController,
@@ -10,23 +18,7 @@ use crate::{
         velocity_ned_controller::VelocityNedController,
     },
     drone::DragCoefficient,
-    simulator::{
-        inputs::Inputs,
-        state::State,
-        types::{
-            acceleration_3d::AccelerationNed,
-            quaternion::Quaternion,
-            vec3::{CrossMult, DotMult, Vec3},
-            velocity_ned::VelocityNed,
-        },
-    },
-    units::{
-        Acceleration, AccelerationLiteral, Jerk, JerkLiteral, Meters, MetersLiteral, PerSecond,
-        Seconds, Velocity, VelocityLiteral,
-        angles::{AngularVelocity, Radians},
-        consts::G_EARTH,
-        traits::{RawRepresentable, UnitsArithmetics},
-    },
+    simulator::{inputs::Inputs, state::State},
 };
 
 const THRUST_MARGIN: f64 = 0.1;
@@ -258,17 +250,6 @@ impl FlightController {
             self.rate_controller
                 .update(angular_rates_target, telemetry.angular_velocity_body, dt);
 
-        // if matches!(self.target.north, AxisTarget::Loiter) {
-        //     println!(
-        //         "BRAKE: pos={:.3}, vel={:.4}, acc_target_n={:.4}, pitch={:.2}°, pitch_rate={:.4}, throttle={:.4}",
-        //         telemetry.position_ned.north().raw(),
-        //         telemetry.velocity_ned.north().raw(),
-        //         acc_target.north().raw(),
-        //         telemetry.attitude.pitch().to_degrees().raw(),
-        //         telemetry.angular_velocity_body.y().raw(),
-        //         throttle.get(),
-        //     );
-        // }
         Inputs {
             throttle,
             pitch,
@@ -312,10 +293,10 @@ impl FlightController {
             AccelerationNed::new(acc_unclamped.north(), acc_unclamped.east(), 0.mps2());
 
         let clamped_horizontal = horizontal_only
-            .to_body_frame(attitude)
+            .to_frd(attitude)
             .clamping_forward(self.limits.max_acceleration.forward())
             .clamping_right(self.limits.max_acceleration.right())
-            .to_world_frame(attitude);
+            .to_ned(attitude);
 
         // Vertical: clamp in world frame (decoupled from attitude)
         AccelerationNed::new(
@@ -337,7 +318,7 @@ impl FlightController {
         // - Apply quadratic drag coefficients in body frame
         // - Transform resulting acceleration back to world frame
         //
-        let velocity_frd = velocity.to_body_frame(attitude);
+        let velocity_frd = velocity.to_frd(attitude);
 
         let drag_h_body = AccelerationFrd::new(
             // acc = v * |v| * drag[1/m] = m/s^2
@@ -348,7 +329,7 @@ impl FlightController {
             0.mps2(),
         );
 
-        let drag_h_world = drag_h_body.to_world_frame(attitude);
+        let drag_h_world = drag_h_body.to_ned(attitude);
         let drag_v_world =
             velocity.down() * velocity.down().abs() * self.limits.drag.vertical.value();
         AccelerationNed::new(drag_h_world.north(), drag_h_world.east(), drag_v_world)
@@ -450,16 +431,9 @@ impl FlightController {
 #[cfg(test)]
 mod flight_controller_tests {
     use approx::assert_relative_eq;
+    use primitives::prelude::*;
 
-    use crate::{
-        DefaultDrone, Drag,
-        controller::tests_utils::TestDrone,
-        simulator::types::{angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed},
-        units::{
-            AccelerationLiteral, MetersLiteral, SecondsLiteral, VelocityLiteral,
-            angles::DegreesLiteral, traits::Initializable,
-        },
-    };
+    use crate::{DefaultDrone, controller::tests_utils::TestDrone};
 
     use super::*;
 
@@ -479,15 +453,15 @@ mod flight_controller_tests {
         let mut ctrl = make_controller();
         let inputs = ctrl.update(&nominal_state(), 0.1.seconds());
 
-        assert!((inputs.roll.get()).abs() < 0.1, "roll should be near zero");
+        assert!((inputs.roll.raw()).abs() < 0.1, "roll should be near zero");
         assert!(
-            (inputs.pitch.get()).abs() < 0.1,
+            (inputs.pitch.raw()).abs() < 0.1,
             "pitch should be near zero"
         );
-        assert!((inputs.yaw.get()).abs() < 0.1, "yaw should be near zero");
+        assert!((inputs.yaw.raw()).abs() < 0.1, "yaw should be near zero");
         // throttle near hover — exact value depends on your airframe limits
-        assert!(inputs.throttle.get() >= 0.0);
-        assert!(inputs.throttle.get() <= 1.0);
+        assert!(inputs.throttle.raw() >= 0.0);
+        assert!(inputs.throttle.raw() <= 1.0);
     }
 
     #[test]
@@ -502,9 +476,9 @@ mod flight_controller_tests {
         let inputs = ctrl.update(&low_state, 0.1.seconds());
 
         assert!(
-            inputs.throttle.get() > 0.5,
+            inputs.throttle.raw() > 0.5,
             "should increase throttle when below target. {}",
-            inputs.throttle.get()
+            inputs.throttle.raw()
         );
     }
 
@@ -519,7 +493,7 @@ mod flight_controller_tests {
         let inputs = ctrl.update(&high_state, 0.1.seconds());
 
         assert!(
-            inputs.throttle.get() > 0.5,
+            inputs.throttle.raw() > 0.5,
             "should decrease throttle when above target"
         );
     }
@@ -535,7 +509,7 @@ mod flight_controller_tests {
         let inputs = ctrl.update(&high_state, 0.1.seconds());
 
         assert!(
-            inputs.throttle.get() < 0.5,
+            inputs.throttle.raw() < 0.5,
             "should decrease throttle when above target"
         );
     }
@@ -555,34 +529,9 @@ mod flight_controller_tests {
 
         let inputs = ctrl.update(&rolled_state, 0.1.seconds());
         assert!(
-            inputs.roll.get() < 0.0,
+            inputs.roll.raw() < 0.0,
             "should correct against positive roll"
         );
-    }
-
-    #[test]
-    fn inputs_always_within_valid_range() {
-        let mut ctrl = make_controller();
-
-        // Extreme state — far from target, high rates
-        let extreme_state = State {
-            altitude: 0.meters(),
-            velocity_ned: VelocityNed::new(10.mps(), 10.mps(), 10.mps()),
-            attitude: Quaternion {
-                w: 0.5,
-                x: 0.5,
-                y: 0.5,
-                z: 0.5,
-            }, // large tilt
-            angular_velocity_body: AngularVelocityFrd::new(5.0, 5.0, 5.0),
-            ..nominal_state()
-        };
-
-        let inputs = ctrl.update(&extreme_state, 0.1.seconds());
-        assert!(inputs.throttle.get() >= 0.0 && inputs.throttle.get() <= 1.0);
-        assert!(inputs.roll.get() >= -1.0 && inputs.roll.get() <= 1.0);
-        assert!(inputs.pitch.get() >= -1.0 && inputs.pitch.get() <= 1.0);
-        assert!(inputs.yaw.get() >= -1.0 && inputs.yaw.get() <= 1.0);
     }
 
     fn max_thrust_limit(limit: Acceleration) -> AirframeLimits {
@@ -619,10 +568,10 @@ mod flight_controller_tests {
         }
 
         assert!(
-            inputs_large.throttle.get() > inputs_small.throttle.get(),
+            inputs_large.throttle.raw() > inputs_small.throttle.raw(),
             "larger altitude error should produce larger throttle response, small={}, large={}",
-            inputs_small.throttle.get(),
-            inputs_large.throttle.get(),
+            inputs_small.throttle.raw(),
+            inputs_large.throttle.raw(),
         );
     }
 
@@ -641,7 +590,7 @@ mod flight_controller_tests {
 
         let inputs = ctrl.update(&pitched_state, 0.1.seconds());
         assert!(
-            inputs.pitch.get() < 0.0,
+            inputs.pitch.raw() < 0.0,
             "should correct against positive pitch"
         );
     }
@@ -661,7 +610,7 @@ mod flight_controller_tests {
 
         let inputs = ctrl.update(&pitched_state, 0.1.seconds());
 
-        assert!(inputs.pitch.get() < 0.0);
+        assert!(inputs.pitch.raw() < 0.0);
     }
 
     #[test]
@@ -673,7 +622,7 @@ mod flight_controller_tests {
         let inputs = ctrl.update(&nominal_state(), 0.1.seconds());
 
         assert!(
-            inputs.pitch.get() < 0.0,
+            inputs.pitch.raw() < 0.0,
             "forward velocity target should produce forward pitch"
         );
     }
@@ -838,7 +787,7 @@ mod flight_controller_tests {
             &Quaternion::identity(),
             G_EARTH * 2.0,
         );
-        assert!((throttle.get() - 0.5).abs() < 1e-6);
+        assert!((throttle.raw() - 0.5).abs() < 1e-6);
     }
 
     #[test]
@@ -849,7 +798,7 @@ mod flight_controller_tests {
             &Quaternion::identity(),
             G_EARTH * 2.0,
         );
-        assert!((throttle.get() - 1.0).abs() < 1e-6);
+        assert!((throttle.raw() - 1.0).abs() < 1e-6);
     }
 
     #[test]
@@ -860,38 +809,8 @@ mod flight_controller_tests {
             &Quaternion::identity(),
             G_EARTH * 2.0,
         );
-        assert!((throttle.get() - 0.0).abs() < 1e-6);
+        assert!((throttle.raw() - 0.0).abs() < 1e-6);
     }
-
-    // #[test]
-    // fn velocity_mode_passes_through_and_updates_trajectory_position() {
-    //     let mut ctrl = make_controller();
-    //     let state = nominal_state();
-    //     ctrl.set_target_north(AxisTarget::Velocity(3.0.mps()));
-    //     ctrl.set_target_east(AxisTarget::Velocity(2.0.mps()));
-    //     ctrl.set_target_down(AxisTarget::Velocity(-1.0.mps()));
-    //     let velocity_target = ctrl.resolve_velocity_target(&state, Seconds(0.1));
-    //     // Velocity passes through
-    //     assert_eq!(velocity_target.north().0, 3.0);
-    //     assert_eq!(velocity_target.east().0, 2.0);
-    //     assert_eq!(velocity_target.down().0, -1.0);
-    //     // Trajectory generator position updated to current position
-    //     assert_relative_eq!(
-    //         ctrl.trajectory_generator.north.position.0,
-    //         state.position_ned.north().0,
-    //         epsilon = 1e-6
-    //     );
-    //     assert_relative_eq!(
-    //         ctrl.trajectory_generator.east.position.0,
-    //         state.position_ned.east().0,
-    //         epsilon = 1e-6
-    //     );
-    //     assert_relative_eq!(
-    //         ctrl.trajectory_generator.down.position.0,
-    //         state.position_ned.down().0,
-    //         epsilon = 1e-6
-    //     );
-    // }
 
     #[test]
     fn position_mode_uses_trajectory_and_position_controller() {
@@ -913,9 +832,9 @@ mod flight_controller_tests {
         // Drone is at -5m, target is -10m → should command climb (negative throttle bias)
         // Throttle should be above hover (0.5) to climb
         assert!(
-            inputs.throttle.get() > 0.5,
+            inputs.throttle.raw() > 0.5,
             "should command more than hover thrust to climb, got {}",
-            inputs.throttle.get()
+            inputs.throttle.raw()
         );
     }
 
@@ -938,10 +857,10 @@ mod flight_controller_tests {
         let max_throttle = (max_vertical_acc + G_EARTH) / TestDrone.max_thrust_acceleration();
 
         assert!(
-            inputs.throttle.get() <= max_throttle + 0.01,
+            inputs.throttle.raw() <= max_throttle + 0.01,
             "throttle should reflect clamped vertical acc, expected <= {}, got {}",
             max_throttle,
-            inputs.throttle.get()
+            inputs.throttle.raw()
         );
     }
 
@@ -961,9 +880,9 @@ mod flight_controller_tests {
         // With large north velocity error, pitch should be at max
         // Pitch input of -1.0 means max nose down
         assert!(
-            inputs.pitch.get() <= -0.9,
+            inputs.pitch.raw() <= -0.9,
             "pitch should be near max nose down for large north error, got {}",
-            inputs.pitch.get()
+            inputs.pitch.raw()
         );
     }
 

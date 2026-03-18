@@ -1,5 +1,5 @@
 use eframe::egui;
-use flight_core::units::{Velocity, traits::RawRepresentable};
+use primitives::{traits::RawRepresentable, units::Velocity};
 
 use crate::{
     theme::{self},

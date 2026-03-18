@@ -1,10 +1,7 @@
-use crate::{
-    simulator::types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw},
-    units::{
-        Acceleration, Meters, Velocity,
-        angles::{AngularVelocity, Radians},
-        traits::{Initializable, RawRepresentable},
-    },
+use primitives::{
+    control::*,
+    traits::{Initializable, RawRepresentable},
+    units::{Acceleration, AngularVelocity, Meters, Radians, Velocity},
 };
 
 pub trait Gain<Error, Output> {
@@ -119,19 +116,19 @@ impl Gain<Acceleration, Velocity> for LinearGain {
 
 impl Gain<Pitch, AngularVelocity> for LinearGain {
     fn apply(&self, value: Pitch) -> AngularVelocity {
-        AngularVelocity::new(self.0 * value.get())
+        AngularVelocity::new(self.0 * value.raw())
     }
 }
 
 impl Gain<Roll, AngularVelocity> for LinearGain {
     fn apply(&self, value: Roll) -> AngularVelocity {
-        AngularVelocity::new(self.0 * value.get())
+        AngularVelocity::new(self.0 * value.raw())
     }
 }
 
 impl Gain<Yaw, AngularVelocity> for LinearGain {
     fn apply(&self, value: Yaw) -> AngularVelocity {
-        AngularVelocity::new(self.0 * value.get())
+        AngularVelocity::new(self.0 * value.raw())
     }
 }
 
@@ -150,8 +147,7 @@ impl Gain<AngularVelocity, Radians> for LinearGain {
 #[cfg(test)]
 mod tests {
     use approx::assert_relative_eq;
-
-    use crate::units::MetersLiteral;
+    use primitives::units::MetersLiteral;
 
     use super::*;
 

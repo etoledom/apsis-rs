@@ -1,4 +1,4 @@
-use crate::simulator::types::{pitch::Pitch, roll::Roll, throttle::Throttle, yaw::Yaw};
+use primitives::control::*;
 
 #[derive(Default, Clone, Copy)]
 pub struct Inputs {

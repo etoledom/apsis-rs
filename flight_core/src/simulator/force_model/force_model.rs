@@ -1,9 +1,6 @@
-use crate::{
-    simulator::{
-        drone::Drone, force_model::context::Context, types::acceleration_3d::AccelerationNed,
-    },
-    units::Seconds,
-};
+use primitives::{frames::AccelerationNed, units::Seconds};
+
+use crate::simulator::{drone::Drone, force_model::context::Context};
 
 pub trait ForceModel<Vehicle: Drone> {
     fn acceleration_contribution<'a>(

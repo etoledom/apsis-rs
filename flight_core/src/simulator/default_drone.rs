@@ -1,14 +1,10 @@
-use crate::{
-    simulator::{
-        drone::{DragCoefficient, Drone},
-        types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
-    },
-    units::{
-        SecondsLiteral,
-        angles::{AngularAcceleration, Degrees, DegreesLiteral},
-        traits::Initializable,
-    },
+use primitives::{
+    control::Throttle,
+    traits::{Initializable, RawRepresentable},
+    units::*,
 };
+
+use crate::simulator::drone::{DragCoefficient, Drone};
 
 #[derive(Clone, Copy)]
 pub struct DefaultDrone;
@@ -38,13 +34,13 @@ impl Drone for DefaultDrone {
         2.0
     }
 
-    fn motor_time_constant(&self) -> crate::units::Seconds {
+    fn motor_time_constant(&self) -> Seconds {
         0.1.seconds()
     }
 
     fn battery_drain_pct(&self, throttle: Throttle) -> f64 {
         let idle_battery_drain_pct_per_second = 0.05;
-        return idle_battery_drain_pct_per_second + (throttle.get() * 0.15);
+        return idle_battery_drain_pct_per_second + (throttle.raw() * 0.15);
     }
 
     fn drag_coefficient(&self) -> super::drone::DragCoefficient {

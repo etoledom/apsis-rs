@@ -1,10 +1,10 @@
-use crate::{
-    controller::pid::{PitchRatePID, RollRatePID, YawRatePID},
-    simulator::types::{
-        angular_velocity_frd::AngularVelocityFrd, pitch::Pitch, roll::Roll, yaw::Yaw,
-    },
+use primitives::{
+    control::{Pitch, Roll, Yaw},
+    frames::AngularVelocityFrd,
     units::Seconds,
 };
+
+use crate::controller::pid::{PitchRatePID, RollRatePID, YawRatePID};
 
 pub struct RateController {
     roll_pid: RollRatePID,
@@ -38,7 +38,8 @@ impl RateController {
 
 #[cfg(test)]
 mod rate_controller_tests {
-    use crate::units::SecondsLiteral;
+
+    use primitives::{traits::RawRepresentable, units::SecondsLiteral};
 
     use super::*;
 
@@ -54,9 +55,9 @@ mod rate_controller_tests {
     fn zero_error_produces_zero_inputs() {
         let mut ctrl = make_controller();
         let (roll, pitch, yaw) = ctrl.update(zero_rates(), zero_rates(), 0.1.seconds());
-        assert_eq!((roll.get()).abs(), 0.0);
-        assert_eq!((pitch.get()).abs(), 0.0);
-        assert_eq!((yaw.get()).abs(), 0.0);
+        assert_eq!((roll.raw()).abs(), 0.0);
+        assert_eq!((pitch.raw()).abs(), 0.0);
+        assert_eq!((yaw.raw()).abs(), 0.0);
     }
 
     #[test]
@@ -65,9 +66,9 @@ mod rate_controller_tests {
         let target = AngularVelocityFrd::new(1.0, 0.0, 0.0);
         let (roll, pitch, yaw) = ctrl.update(target, zero_rates(), 0.1.seconds());
 
-        assert!(roll.get() > 0.0, "roll input should be positive");
-        assert!((pitch.get()).abs() < 1e-6, "pitch input should be zero");
-        assert!((yaw.get()).abs() < 1e-6, "yaw input should be zero");
+        assert!(roll.raw() > 0.0, "roll input should be positive");
+        assert!((pitch.raw()).abs() < 1e-6, "pitch input should be zero");
+        assert!((yaw.raw()).abs() < 1e-6, "yaw input should be zero");
     }
 
     #[test]
@@ -77,7 +78,7 @@ mod rate_controller_tests {
         let (roll, ..) = ctrl.update(target, zero_rates(), 0.1.seconds());
         // kp=0.8, error=2.0 → output=0.2
         // roll = 1.6.clamped() -> 1.0
-        assert_eq!(roll.get(), 1.0);
+        assert_eq!(roll.raw(), 1.0);
     }
 
     #[test]
@@ -85,8 +86,8 @@ mod rate_controller_tests {
         let mut ctrl = make_controller();
         let target = AngularVelocityFrd::new(9999.0, 0.0, 0.0);
         let (roll, ..) = ctrl.update(target, zero_rates(), 0.1.seconds());
-        assert!(roll.get() <= 1.0, "roll input must not exceed 1.0");
-        assert!(roll.get() >= -1.0);
+        assert!(roll.raw() <= 1.0, "roll input must not exceed 1.0");
+        assert!(roll.raw() >= -1.0);
     }
 
     #[test]
@@ -97,7 +98,7 @@ mod rate_controller_tests {
         let (_, pitch, _) = ctrl.update(target, current, 0.1.seconds());
 
         assert!(
-            pitch.get() > 0.0,
+            pitch.raw() > 0.0,
             "positive pitch rate error should produce positive pitch input"
         );
     }
@@ -110,7 +111,7 @@ mod rate_controller_tests {
         let (roll, ..) = ctrl.update(target, current, 0.1.seconds());
 
         assert!(
-            roll.get() > 0.0,
+            roll.raw() > 0.0,
             "positive roll rate error should produce positive roll input"
         );
     }

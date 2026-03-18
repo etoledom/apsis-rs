@@ -1,9 +1,11 @@
-use crate::{
-    controller::{
-        AxisTarget,
-        trajectory_generator::s_curve_profile::{SCurveProfile, SCurveSetpoint},
-    },
-    units::{Acceleration, Meters, PerSecond, Seconds, Velocity, traits::RawRepresentable},
+use primitives::{
+    traits::{RawRepresentable, UnitsArithmetics},
+    units::{Acceleration, Meters, PerSecond, Seconds, Velocity},
+};
+
+use crate::controller::{
+    AxisTarget,
+    trajectory_generator::s_curve_profile::{SCurveProfile, SCurveSetpoint},
 };
 
 pub struct AxisTrajectory {
@@ -90,10 +92,7 @@ impl AxisTrajectory {
 mod tests {
     const EPSILON: f64 = 1e-10;
 
-    use crate::units::{
-        AccelerationLiteral, JerkLiteral, MetersLiteral, PerSecond, SecondsLiteral,
-        VelocityLiteral, traits::RawRepresentable,
-    };
+    use primitives::prelude::*;
 
     use super::*;
 

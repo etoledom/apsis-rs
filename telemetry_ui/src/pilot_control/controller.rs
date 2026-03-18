@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
 use eframe::egui::{self, Key};
-use flight_core::units::{
-    Velocity, VelocityLiteral,
-    angles::{AngularVelocity, DegreesPerSecond},
-};
+use primitives::units::{AngularVelocity, DegreesPerSecond, Velocity, VelocityLiteral};
 
 #[derive(Clone, Copy, Default, PartialEq)]
 pub struct Target {

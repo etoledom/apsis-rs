@@ -1,13 +1,11 @@
-use crate::{
-    simulator::{
-        drone::Drone,
-        force_model::{
-            context::Context, drag_model::DragModel, force_model::ForceModel,
-            gravity_model::GravityModel, thrust_model::ThrustModel,
-        },
-        types::acceleration_3d::AccelerationNed,
+use primitives::{frames::AccelerationNed, units::Seconds};
+
+use crate::simulator::{
+    drone::Drone,
+    force_model::{
+        context::Context, drag_model::DragModel, force_model::ForceModel,
+        gravity_model::GravityModel, thrust_model::ThrustModel,
     },
-    units::Seconds,
 };
 
 pub struct CoreMechanicsModel {

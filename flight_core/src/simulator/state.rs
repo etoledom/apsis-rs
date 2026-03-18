@@ -1,12 +1,10 @@
-use crate::{
-    AccelerationNed,
-    inputs::Inputs,
-    simulator::types::{
-        angular_velocity_frd::AngularVelocityFrd, position_ned::PositionNed,
-        quaternion::Quaternion, vec2::Vec2, velocity_ned::VelocityNed,
-    },
-    units::{Meters, Velocity},
+use primitives::{
+    frames::{AccelerationNed, AngularVelocityFrd, PositionNed, VelocityNed},
+    math::Quaternion,
+    units::Meters,
 };
+
+use crate::inputs::Inputs;
 
 #[derive(Clone, Copy)]
 pub struct State {
@@ -40,15 +38,6 @@ impl Default for State {
             last_inputs: Default::default(),
             latitude: Default::default(),
             longitude: Default::default(),
-        }
-    }
-}
-
-impl Default for Vec2<Velocity> {
-    fn default() -> Self {
-        Self {
-            x: Default::default(),
-            y: Default::default(),
         }
     }
 }

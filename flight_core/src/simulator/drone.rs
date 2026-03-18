@@ -1,10 +1,6 @@
-use crate::{
-    simulator::types::{angular_damping::AngularDamping, drag::Drag, throttle::Throttle},
-    units::{
-        Acceleration, Seconds,
-        angles::{AngularAcceleration, Degrees},
-        consts::G_EARTH,
-    },
+use primitives::{
+    control::Throttle,
+    units::{consts::G_EARTH, *},
 };
 
 pub trait Drone {

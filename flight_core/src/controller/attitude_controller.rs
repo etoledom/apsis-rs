@@ -1,12 +1,11 @@
-use crate::{
-    controller::pid::AngularPID,
-    simulator::types::{angular_velocity_frd::AngularVelocityFrd, quaternion::Quaternion},
-    units::{
-        Seconds,
-        angles::{AngularVelocity, Radians},
-        traits::Initializable,
-    },
+use primitives::{
+    frames::AngularVelocityFrd,
+    math::Quaternion,
+    traits::Initializable,
+    units::{AngularVelocity, Radians, Seconds},
 };
+
+use crate::controller::pid::AngularPID;
 
 pub struct AttitudeController {
     pitch_pid: AngularPID,
@@ -47,7 +46,7 @@ impl AttitudeController {
 mod tests {
     use approx::assert_relative_eq;
 
-    use crate::units::{SecondsLiteral, angles::DegreesLiteral, traits::RawRepresentable};
+    use primitives::prelude::*;
 
     use super::*;
 

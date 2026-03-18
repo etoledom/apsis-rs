@@ -1,14 +1,12 @@
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
 
-use crate::{
-    controller::gain::{Converter, Gain, LinearGain},
-    simulator::types::{pitch::Pitch, roll::Roll, yaw::Yaw},
-    units::{
-        Acceleration, Meters, Seconds, Velocity,
-        angles::{AngularVelocity, Radians},
-        traits::{Initializable, RawRepresentable, UnitsArithmetics},
-    },
+use primitives::{
+    control::*,
+    traits::{Initializable, RawRepresentable, UnitsArithmetics},
+    units::{Acceleration, AngularVelocity, Meters, Radians, Seconds, Velocity},
 };
+
+use crate::controller::gain::{Converter, Gain, LinearGain};
 
 pub trait Clampable<T> {
     fn clamped(self, limits: PIDLimits<T>) -> T;
@@ -16,19 +14,19 @@ pub trait Clampable<T> {
 
 impl Clampable<Pitch> for Pitch {
     fn clamped(self, limits: PIDLimits<Pitch>) -> Pitch {
-        Pitch::clamp(self.get().clamp(limits.min.get(), limits.max.get()))
+        Pitch::clamp(self.raw().clamp(limits.min.raw(), limits.max.raw()))
     }
 }
 
 impl Clampable<Roll> for Roll {
     fn clamped(self, limits: PIDLimits<Roll>) -> Roll {
-        Roll::clamp(self.get().clamp(limits.min.get(), limits.max.get()))
+        Roll::clamp(self.raw().clamp(limits.min.raw(), limits.max.raw()))
     }
 }
 
 impl Clampable<Yaw> for Yaw {
     fn clamped(self, limits: PIDLimits<Yaw>) -> Yaw {
-        Yaw::clamp(self.get().clamp(limits.min.get(), limits.max.get()))
+        Yaw::clamp(self.raw().clamp(limits.min.raw(), limits.max.raw()))
     }
 }
 
@@ -41,6 +39,7 @@ macro_rules! impl_clampable {
         }
     };
 }
+
 impl_clampable!(Velocity);
 impl_clampable!(Acceleration);
 impl_clampable!(AngularVelocity);
@@ -164,12 +163,9 @@ pub type YawRatePID = PID<AngularVelocity, Yaw, LinearGain, LinearGain, LinearGa
 
 #[cfg(test)]
 mod test {
+    use crate::controller::gain::LinearGain;
     use approx::assert_relative_eq;
-
-    use crate::{
-        controller::gain::LinearGain,
-        units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
-    };
+    use primitives::prelude::*;
 
     use super::*;
 

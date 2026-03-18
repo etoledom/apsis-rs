@@ -2,6 +2,7 @@
 members = [
     "flight_core",
     "telemetry_ui",
+    "primitives",
     # "flight_mission",
 ]
 resolver = "2"

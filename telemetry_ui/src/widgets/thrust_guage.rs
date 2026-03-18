@@ -1,7 +1,7 @@
 use std::f32::consts::PI;
 
 use eframe::egui::{self, Ui};
-use flight_core::Throttle;
+use primitives::{control::Throttle, traits::RawRepresentable};
 
 use crate::theme::*;
 
@@ -11,7 +11,7 @@ pub struct ThrustGauge {
 
 impl ThrustGauge {
     pub fn show(&self, ui: &mut Ui) {
-        let thrust = self.thrust.get() as f32;
+        let thrust = self.thrust.raw() as f32;
         let width = ui.available_width();
         let height = 100.0;
 

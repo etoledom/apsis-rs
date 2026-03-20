@@ -1,5 +1,5 @@
 use primitives::{
-    frames::{PositionNed, VelocityNed},
+    frames::{Ned, PositionNed, VelocityNed},
     units::Seconds,
 };
 

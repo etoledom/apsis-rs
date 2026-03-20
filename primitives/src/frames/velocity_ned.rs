@@ -1,8 +1,8 @@
 use std::ops::Mul;
 
 use crate::{
-    frames::{GroundVelocityNed, PositionNed, VelocityFrd},
-    impl_units_arithmetics,
+    frames::{GroundVelocityNed, Ned, PositionNed, VelocityFrd},
+    impl_ned_vec3, impl_units_arithmetics,
     math::{Quaternion, Vec3},
     traits::RawRepresentable,
     units::{Seconds, Velocity, VelocityLiteral},
@@ -13,14 +13,6 @@ use crate::{
 pub struct VelocityNed(Vec3<Velocity>);
 
 impl VelocityNed {
-    pub fn new(north: Velocity, east: Velocity, down: Velocity) -> Self {
-        Self(Vec3 {
-            x: north,
-            y: east,
-            z: down,
-        })
-    }
-
     pub fn zero() -> Self {
         Self::default()
     }
@@ -30,34 +22,7 @@ impl VelocityNed {
     pub fn from_east(east: Velocity) -> Self {
         Self::new(0.mps(), east, 0.mps())
     }
-    pub fn north(&self) -> Velocity {
-        self.0.x
-    }
-    pub fn east(&self) -> Velocity {
-        self.0.y
-    }
-    pub fn down(&self) -> Velocity {
-        self.0.z
-    }
 
-    pub fn update_down(&mut self, new_value: Velocity) {
-        self.0.z = new_value;
-    }
-    pub fn update_north(&mut self, new_value: Velocity) {
-        self.0.x = new_value;
-    }
-    pub fn update_east(&mut self, new_value: Velocity) {
-        self.0.y = new_value;
-    }
-    pub fn add_down(&mut self, added_value: Velocity) {
-        self.0.z += added_value;
-    }
-    pub fn add_north(&mut self, added_value: Velocity) {
-        self.0.x += added_value;
-    }
-    pub fn add_east(&mut self, added_value: Velocity) {
-        self.0.y += added_value;
-    }
     pub fn clamp_down(&mut self, min: Velocity, max: Velocity) {
         self.0.z.clamp(min, max);
     }
@@ -75,8 +40,11 @@ impl VelocityNed {
         let rotated = rotation.conjugate().rotate(qv);
         VelocityFrd::new(rotated.x.mps(), rotated.y.mps(), rotated.z.mps())
     }
+
+    // pub fn dot<T>(self, other: Vec3<T>) {}
 }
 
+impl_ned_vec3!(VelocityNed, Velocity);
 impl_units_arithmetics!(VelocityNed);
 
 impl Mul<Seconds> for VelocityNed {

@@ -1,6 +1,6 @@
 use primitives::{
     control::*,
-    frames::{AccelerationNed, AngularAccelerationFrd, GroundVelocityNed},
+    frames::{AccelerationNed, AngularAccelerationFrd, GroundVelocityNed, Ned},
     math::Quaternion,
     traits::RawRepresentable,
     units::{MetersLiteral, Seconds, VelocityLiteral, consts::EARTH_RADIUS},

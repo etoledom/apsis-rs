@@ -1,5 +1,6 @@
 use primitives::{
     control::*,
+    frames::{AccelerationNed, Ned, VelocityNed},
     traits::{Initializable, RawRepresentable},
     units::{Acceleration, AngularVelocity, Meters, Radians, Velocity},
 };
@@ -35,6 +36,24 @@ impl From<f64> for LinearGain {
 impl From<i32> for LinearGain {
     fn from(value: i32) -> Self {
         Self(value as f64)
+    }
+}
+
+trait NedVector {}
+impl NedVector for VelocityNed {}
+impl NedVector for AccelerationNed {}
+
+impl<Error, Output> Gain<Error, Output> for LinearGain
+where
+    Error: Ned<Velocity> + NedVector,
+    Output: Ned<Acceleration> + NedVector,
+{
+    fn apply(&self, value: Error) -> Output {
+        Output::new(
+            Acceleration::new(value.north().raw() * self.0),
+            Acceleration::new(value.east().raw() * self.0),
+            Acceleration::new(value.down().raw() * self.0),
+        )
     }
 }
 

@@ -9,13 +9,14 @@ use primitives::{
 use crate::{
     Drone,
     controller::{
+        acceleration_estimator::AccelerationEstimator,
         attitude_controller::AttitudeController,
         position_controller::PositionController,
         rate_controller::RateController,
         trajectory_generator::{
             trajectory_generator::TrajectoryGenerator, trajectory_limits::TrajectoryLimits,
         },
-        velocity_ned_controller::VelocityNedController,
+        velocity_controller::VelocityController,
     },
     drone::DragCoefficient,
     simulator::{inputs::Inputs, state::State},
@@ -91,12 +92,14 @@ pub struct FlightController {
     target: FlightTarget,
     pub(crate) trajectory_generator: TrajectoryGenerator,
     position_controller: PositionController,
-    velocity_ned_controller: VelocityNedController,
+    velocity_controller: VelocityController,
     attitude_controller: AttitudeController,
     rate_controller: RateController,
     limits: AirframeLimits,
     yaw_rate_target: AngularVelocity,
     initialized: bool,
+    acceleration_estimator: AccelerationEstimator,
+    prev_saturation_error: AccelerationNed,
 }
 
 impl FlightController {
@@ -118,12 +121,14 @@ impl FlightController {
                 PerSecond(0.8),
             ),
             position_controller: PositionController::new(velocity_max),
-            velocity_ned_controller: VelocityNedController::new(VelocityNed::zero()),
+            velocity_controller: VelocityController::new(),
             attitude_controller: AttitudeController::new(),
             rate_controller: RateController::new(),
             limits: limits,
             yaw_rate_target: Default::default(),
             initialized: false,
+            acceleration_estimator: AccelerationEstimator::new(PerSecond(5.0)),
+            prev_saturation_error: AccelerationNed::zero(),
         }
     }
 
@@ -186,64 +191,54 @@ impl FlightController {
     // angular_rates_target -> drone inputs: pitch, roll, yaw, throttle (rate controller)
     pub fn update(&mut self, telemetry: &State, dt: Seconds) -> Inputs {
         self.sync_if_needed(telemetry);
-        // println!(
-        //     "FC: actual_vel_n={:.4}, actual_pos_n={:.4}, target={:?}",
-        //     telemetry.velocity_ned.north().raw(),
-        //     telemetry.position_ned.north().raw(),
-        //     self.target.north,
-        // );
-        // if matches!(self.target.north, AxisTarget::Loiter) {
-        //     println!(
-        //         "LOITER: pos={:.4}, vel={:.4}",
-        //         telemetry.position_ned.north().raw(),
-        //         telemetry.velocity_ned.north().raw(),
-        //     );
-        // }
         // 1. Trajectory generator — open loop, produces feedforward signals
         let trajectory_setpoint = self.trajectory_generator.update(&self.target, dt);
 
         // 2. Position controller — feedback, compares plan vs reality
-        let target_position = PositionNed::new(
-            trajectory_setpoint.north.position,
-            trajectory_setpoint.east.position,
-            trajectory_setpoint.down.position,
-        );
-        let vel_correction =
-            self.position_controller
-                .update(telemetry.position_ned, target_position, dt);
-
-        // 3. Combine: position correction + velocity feedforward
-        let vel_ff = VelocityNed::new(
-            trajectory_setpoint.north.velocity,
-            trajectory_setpoint.east.velocity,
-            trajectory_setpoint.down.velocity,
-        );
-        self.velocity_ned_controller.target = vel_correction + vel_ff;
-
-        // 4. Acceleration feedforward from trajectory
-        let acc_ff = AccelerationNed::new(
-            trajectory_setpoint.north.acceleration,
-            trajectory_setpoint.east.acceleration,
-            trajectory_setpoint.down.acceleration,
-        );
-
-        // 5. Velocity PID with both feedforwards
-        let acc_target = self.velocity_ned_controller.update(
-            telemetry.velocity_ned,
-            acc_ff,
-            self.compute_drag_feedforward(telemetry.velocity_ned, &telemetry.attitude),
+        let vel_correction = self.position_controller.update(
+            telemetry.position_ned,
+            trajectory_setpoint.position(),
             dt,
         );
 
-        let acc_target = self.clamp_acceleration(acc_target, &telemetry.attitude);
+        // 3. Combine: position correction + velocity feedforward
+        let vel_ff = trajectory_setpoint.velocity();
+        let vel_target = vel_correction + vel_ff;
+
+        // 4. Acceleration feedforward from trajectory
+        let acc_ff = trajectory_setpoint.acceleration();
+        let acc_current = self
+            .acceleration_estimator
+            .update(telemetry.velocity_ned, dt);
+
+        // 5. Velocity PID with both feedforwards
+        //
+        let acc_target = self.velocity_controller.update(
+            telemetry.velocity_ned,
+            vel_target,
+            acc_current,
+            acc_ff,
+            self.prev_saturation_error,
+            dt,
+        );
+
+        // let acc_target = self.velocity_ned_controller.update(
+        //     telemetry.velocity_ned,
+        //     acc_ff,
+        //     self.compute_drag_feedforward(telemetry.velocity_ned, &telemetry.attitude),
+        //     dt,
+        // );
+
+        let acc_target_real = self.clamp_acceleration(acc_target, &telemetry.attitude);
+        self.prev_saturation_error = acc_target - acc_target_real;
 
         let throttle = Self::throttle_from_acceleration(
-            acc_target,
+            acc_target_real,
             &telemetry.attitude,
             self.limits.max_thrust,
         );
 
-        let q_target = Self::q_target_from_acceleration(acc_target, telemetry.attitude.yaw())
+        let q_target = Self::q_target_from_acceleration(acc_target_real, telemetry.attitude.yaw())
             .clamped(self.limits.max_pitch, self.limits.max_roll);
         let angular_rates_target = self.compute_angular_rates(q_target, telemetry, dt);
         let (roll, pitch, yaw) =

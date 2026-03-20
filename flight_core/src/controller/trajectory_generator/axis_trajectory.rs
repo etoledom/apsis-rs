@@ -1,5 +1,5 @@
 use primitives::{
-    traits::{RawRepresentable, UnitsArithmetics},
+    traits::UnitsArithmetics,
     units::{Acceleration, Meters, PerSecond, Seconds, Velocity},
 };
 
@@ -36,20 +36,11 @@ impl AxisTrajectory {
                 self.velocity_from_position_error(*position_target)
             }
             AxisTarget::Loiter => {
-                if self.loiter_target.is_none() {
-                    let stop = self.profile.stopping_position();
-                    println!(
-                        "LOITER CAPTURE: profile_vel={:.4}, profile_pos={:.4}, stopping_pos={:.4}",
-                        self.profile.velocity().raw(),
-                        self.profile.position().raw(),
-                        stop.raw(),
-                    );
-                }
-
                 let pos_target = *self.loiter_target.get_or_insert_with(|| {
                     let stop = self.profile.stopping_position();
-                    let delay_distance = self.profile.velocity() * self.cascade_delay;
-                    stop + delay_distance
+                    // let delay_distance = self.profile.velocity() * self.cascade_delay;
+                    // stop + delay_distance
+                    stop
                 });
 
                 self.velocity_from_position_error(pos_target)

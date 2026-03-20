@@ -1,5 +1,5 @@
 use primitives::{
-    frames::{AccelerationFrd, AccelerationNed, VelocityNed},
+    frames::{AccelerationFrd, AccelerationNed, Ned, VelocityNed},
     traits::UnitsArithmetics,
     units::{AccelerationLiteral, Seconds, VelocityLiteral},
 };

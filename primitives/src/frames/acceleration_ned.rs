@@ -1,8 +1,8 @@
 use std::ops::Mul;
 
 use crate::{
-    frames::{AccelerationFrd, VelocityNed},
-    impl_units_arithmetics,
+    frames::{AccelerationFrd, Ned, VelocityNed},
+    impl_ned_vec3, impl_units_arithmetics,
     math::{Quaternion, Vec3},
     traits::{Initializable, RawRepresentable},
     units::{Acceleration, AccelerationLiteral, Seconds},
@@ -13,14 +13,6 @@ use crate::{
 pub struct AccelerationNed(Vec3<Acceleration>);
 
 impl AccelerationNed {
-    pub fn new(north: Acceleration, east: Acceleration, down: Acceleration) -> Self {
-        Self(Vec3 {
-            x: north,
-            y: east,
-            z: down,
-        })
-    }
-
     pub fn zero() -> Self {
         Self::default()
     }
@@ -30,18 +22,6 @@ impl AccelerationNed {
             z: down,
             ..Default::default()
         })
-    }
-
-    pub fn north(&self) -> Acceleration {
-        self.0.x
-    }
-
-    pub fn east(&self) -> Acceleration {
-        self.0.y
-    }
-
-    pub fn down(&self) -> Acceleration {
-        self.0.z
     }
 
     pub fn norm(&self) -> Acceleration {
@@ -88,6 +68,7 @@ impl AccelerationNed {
 }
 
 impl_units_arithmetics!(AccelerationNed);
+impl_ned_vec3!(AccelerationNed, Acceleration);
 
 impl Mul<Seconds> for AccelerationNed {
     type Output = VelocityNed;

@@ -1,6 +1,6 @@
 use crate::controller::pid::VelocityPID;
 use primitives::{
-    frames::{AccelerationNed, VelocityNed},
+    frames::{AccelerationNed, Ned, VelocityNed},
     units::Seconds,
 };
 

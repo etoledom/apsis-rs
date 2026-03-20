@@ -4,7 +4,7 @@ use crate::{
 };
 use eframe::egui;
 use flight_core::state::State;
-use primitives::traits::RawRepresentable;
+use primitives::{frames::Ned, traits::RawRepresentable};
 
 pub struct TelemetryBar<'a> {
     pub state: &'a Option<State>,

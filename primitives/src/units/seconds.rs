@@ -1,3 +1,4 @@
+use std::ops::Div;
 use std::ops::Mul;
 
 use crate::impl_debug_unit;
@@ -32,5 +33,13 @@ impl Mul for Seconds {
 
     fn mul(self, rhs: Self) -> Self::Output {
         SecondsSquare::new(self.0 * rhs.0)
+    }
+}
+
+impl Div for Seconds {
+    type Output = f64;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        self.0 / rhs.0
     }
 }

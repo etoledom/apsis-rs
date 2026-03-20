@@ -10,7 +10,7 @@ use flight_core::{
 };
 mod sim_ui;
 use primitives::{
-    frames::VelocityFrd,
+    frames::{Ned, VelocityFrd},
     units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
 };
 use sim_ui::*;

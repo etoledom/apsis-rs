@@ -1,5 +1,5 @@
 use crate::{
-    frames::VelocityNed,
+    frames::{Ned, VelocityNed},
     impl_units_arithmetics,
     math::{Quaternion, Vec3},
     traits::RawRepresentable,

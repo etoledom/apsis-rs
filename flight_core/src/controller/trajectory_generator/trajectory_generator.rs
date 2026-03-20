@@ -1,4 +1,7 @@
-use primitives::units::{PerSecond, Seconds};
+use primitives::{
+    frames::{AccelerationNed, Ned, PositionNed, VelocityNed},
+    units::{PerSecond, Seconds},
+};
 
 use crate::controller::{
     FlightTarget,
@@ -19,6 +22,24 @@ pub struct TrajectorySetpoint {
     pub north: SCurveSetpoint,
     pub east: SCurveSetpoint,
     pub down: SCurveSetpoint,
+}
+
+impl TrajectorySetpoint {
+    pub fn position(&self) -> PositionNed {
+        PositionNed::new(self.north.position, self.east.position, self.down.position)
+    }
+
+    pub fn velocity(&self) -> VelocityNed {
+        VelocityNed::new(self.north.velocity, self.east.velocity, self.down.velocity)
+    }
+
+    pub fn acceleration(&self) -> AccelerationNed {
+        AccelerationNed::new(
+            self.north.acceleration,
+            self.east.acceleration,
+            self.down.acceleration,
+        )
+    }
 }
 
 impl TrajectoryGenerator {

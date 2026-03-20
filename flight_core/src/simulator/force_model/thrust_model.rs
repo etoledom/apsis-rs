@@ -1,5 +1,5 @@
 use primitives::{
-    frames::AccelerationNed,
+    frames::{AccelerationNed, Ned},
     math::Quaternion,
     traits::{Initializable, RawRepresentable},
     units::{Acceleration, Seconds},

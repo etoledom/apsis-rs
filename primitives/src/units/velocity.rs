@@ -32,15 +32,6 @@ impl Mul<PerSecond> for Velocity {
     }
 }
 
-/// (m/s) / m/s^2 = s
-impl Div<Acceleration> for Velocity {
-    type Output = Seconds;
-
-    fn div(self, rhs: Acceleration) -> Self::Output {
-        Seconds::new(self.0 / rhs.raw())
-    }
-}
-
 /// (m/s) * s = m
 impl Mul<Seconds> for Velocity {
     type Output = Meters;
@@ -56,5 +47,23 @@ impl Mul<Velocity> for Velocity {
 
     fn mul(self, rhs: Velocity) -> Self::Output {
         VelocitySquare(self.0 * rhs.0)
+    }
+}
+
+/// (m/s) / m/s^2 = s
+impl Div<Acceleration> for Velocity {
+    type Output = Seconds;
+
+    fn div(self, rhs: Acceleration) -> Self::Output {
+        Seconds::new(self.0 / rhs.raw())
+    }
+}
+
+/// (m/s) / 1/s = m/s^2
+impl Div<Seconds> for Velocity {
+    type Output = Acceleration;
+
+    fn div(self, rhs: Seconds) -> Self::Output {
+        Acceleration::new(self.0 / rhs.raw())
     }
 }

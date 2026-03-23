@@ -1,11 +1,14 @@
 use primitives::{
     traits::UnitsArithmetics,
-    units::{Acceleration, Meters, PerSecond, Seconds, Velocity},
+    units::{Acceleration, Meters, PerSecond, Seconds, SecondsLiteral, Velocity},
 };
 
 use crate::controller::{
     AxisTarget,
-    trajectory_generator::s_curve_profile::{SCurveProfile, SCurveSetpoint},
+    trajectory_generator::{
+        s_curve_profile::{SCurveProfile, SCurveSetpoint},
+        trajectory_limits::TrajectoryLimits,
+    },
 };
 
 pub struct AxisTrajectory {
@@ -13,15 +16,24 @@ pub struct AxisTrajectory {
     loiter_target: Option<Meters>,
     position_gain: PerSecond,
     cascade_delay: Seconds,
+    auto_limits: TrajectoryLimits,
+    manual_limits: TrajectoryLimits,
 }
 
 impl AxisTrajectory {
-    pub fn new(profile: SCurveProfile, gain: PerSecond, cascade_delay: Seconds) -> Self {
+    pub fn new(
+        profile: SCurveProfile,
+        gain: PerSecond,
+        auto_limits: TrajectoryLimits,
+        manual_limits: TrajectoryLimits,
+    ) -> Self {
         Self {
             profile,
             loiter_target: None,
             position_gain: gain,
-            cascade_delay,
+            cascade_delay: 0.2.seconds(),
+            auto_limits,
+            manual_limits,
         }
     }
 
@@ -29,19 +41,21 @@ impl AxisTrajectory {
         let vel_target = match target {
             AxisTarget::Velocity(velocity_target) => {
                 self.loiter_target = None;
+                self.profile = self.profile.with_trajectory_limits(self.manual_limits);
                 *velocity_target
             }
             AxisTarget::Position(position_target) => {
                 self.loiter_target = None;
+                self.profile = self.profile.with_trajectory_limits(self.auto_limits);
                 self.velocity_from_position_error(*position_target)
             }
             AxisTarget::Loiter => {
                 let pos_target = *self.loiter_target.get_or_insert_with(|| {
                     let stop = self.profile.stopping_position();
-                    // let delay_distance = self.profile.velocity() * self.cascade_delay;
-                    // stop + delay_distance
-                    stop
+                    let delay_distance = self.profile.velocity() * self.cascade_delay;
+                    stop + delay_distance
                 });
+                self.profile = self.profile.with_trajectory_limits(self.auto_limits);
 
                 self.velocity_from_position_error(pos_target)
             }
@@ -87,11 +101,19 @@ mod tests {
 
     use super::*;
 
+    fn limits() -> TrajectoryLimits {
+        TrajectoryLimits {
+            max_velocity: 10.mps(),
+            max_acceleration: 3.mps2(),
+            max_jerk: 5.mps3(),
+        }
+    }
+
     #[test]
     fn axis_trajectory_velocity_mode() {
         // Velocity mode passes target directly to profile
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps());
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let profile = SCurveProfile::new();
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         let dt = 0.01.seconds();
 
         for _ in 0..500 {
@@ -102,8 +124,8 @@ mod tests {
 
     #[test]
     fn axis_trajectory_velocity_mode_clears_loiter() {
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps());
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let profile = SCurveProfile::new();
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         let dt = 0.01.seconds();
 
         // Enter loiter
@@ -118,14 +140,10 @@ mod tests {
 
     #[test]
     fn axis_trajectory_loiter_captures_stopping_position() {
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            5.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new().with_state(0.meters(), 5.mps(), 0.mps2());
         let expected_stop = profile.stopping_position();
 
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         axis.update(&AxisTarget::Loiter, 0.01.seconds());
 
         assert!((axis.loiter_target.unwrap().raw() - expected_stop.raw()).abs() < 1e-9);
@@ -134,12 +152,8 @@ mod tests {
     #[test]
     fn axis_trajectory_loiter_converges_to_stop_position() {
         // Fly at 5 m/s, then loiter — should stop near the predicted position
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            5.mps(),
-            0.mps2(),
-        );
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let profile = SCurveProfile::new().with_state(0.meters(), 5.mps(), 0.mps2());
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         let dt = 0.01.seconds();
 
         let mut setpoint = SCurveSetpoint {
@@ -159,8 +173,8 @@ mod tests {
     #[test]
     fn axis_trajectory_position_converges() {
         // From rest, go to position 20m
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 5.mps());
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let profile = SCurveProfile::new();
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         let dt = 0.01.seconds();
 
         let mut setpoint = SCurveSetpoint {
@@ -179,12 +193,8 @@ mod tests {
     #[test]
     fn axis_trajectory_loiter_target_is_stable() {
         // Once loiter captures, target doesn't change on subsequent ticks
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            4.mps(),
-            0.mps2(),
-        );
-        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), 0.seconds());
+        let profile = SCurveProfile::new().with_state(0.meters(), 4.mps(), 0.mps2());
+        let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         let dt = 0.01.seconds();
 
         axis.update(&AxisTarget::Loiter, dt);

@@ -28,6 +28,7 @@ fn main() -> eframe::Result {
         let mut last_time = Instant::now();
 
         controller.set_target_north(AxisTarget::Position(20.meters()));
+        controller.set_target_down(AxisTarget::Position(-10.meters()));
 
         loop {
             let now = Instant::now();

@@ -19,6 +19,9 @@ impl LinearGain {
     pub fn zero() -> Self {
         LinearGain(0.0)
     }
+    pub fn gain(&self) -> f64 {
+        self.0
+    }
 }
 
 impl RawRepresentable for LinearGain {

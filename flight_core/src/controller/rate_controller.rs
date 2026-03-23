@@ -1,6 +1,7 @@
 use primitives::{
     control::{Pitch, Roll, Yaw},
     frames::AngularVelocityFrd,
+    traits::RawRepresentable,
     units::Seconds,
 };
 
@@ -15,8 +16,8 @@ pub struct RateController {
 impl RateController {
     pub fn new() -> Self {
         Self {
-            roll_pid: RollRatePID::new(3, 0, 0.05),
-            pitch_pid: PitchRatePID::new(3, 0, 0.05),
+            roll_pid: RollRatePID::new(3, 0, 0),
+            pitch_pid: PitchRatePID::new(3, 0, 0),
             yaw_pid: YawRatePID::new(2, 0, 0),
         }
     }

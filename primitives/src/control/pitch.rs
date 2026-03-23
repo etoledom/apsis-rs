@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[repr(transparent)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct Pitch(SignedUnitInterval);
 
 impl Pitch {

@@ -20,10 +20,6 @@ impl Throttle {
     pub fn clamping(self, value: f64) -> Self {
         Self::clamp(value)
     }
-
-    pub fn get(&self) -> f32 {
-        todo!()
-    }
 }
 
 impl Initializable for Throttle {

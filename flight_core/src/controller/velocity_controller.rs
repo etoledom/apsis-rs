@@ -1,7 +1,7 @@
 use primitives::{
     frames::{AccelerationNed, Ned, VelocityNed},
-    traits::RawRepresentable,
-    units::{AccelerationLiteral, Seconds},
+    traits::{RawRepresentable, UnitsArithmetics},
+    units::{Seconds, VelocityLiteral},
 };
 
 use crate::controller::pids::gain::{Gain, LinearGain};
@@ -51,6 +51,8 @@ pub struct Integral {
     accumulator: AccelerationNed,
 }
 
+const DEADBAND: f64 = 0.03; // 3 cm/s — below sensor noise floor
+
 impl Integral {
     fn new(north: f64, east: f64, down: f64) -> Self {
         Self {
@@ -62,24 +64,34 @@ impl Integral {
         &mut self,
         vel_error: VelocityNed,
         saturation_error: AccelerationNed,
+        kp: &LinearNedGain,
         dt: Seconds,
     ) -> AccelerationNed {
-        let integral = self.ki.apply(vel_error);
+        let mut vel_error_arw_modified = vel_error;
 
-        if saturation_error.north().raw() * vel_error.north().raw() <= 0.0 {
-            self.accumulator.add_north(integral.north() * dt.raw());
+        // Anti-Reset Windup implementation (ARW)
+        let arw_gain_north = LinearGain::new(2.0 / kp.north.gain());
+        let arw_gain_east = LinearGain::new(2.0 / kp.east.gain());
+
+        // Tracking ARW — modify error before integrating
+        vel_error_arw_modified
+            .update_north(vel_error.north() - arw_gain_north.apply(saturation_error.north()));
+        vel_error_arw_modified
+            .update_east(vel_error.east() - arw_gain_east.apply(saturation_error.east()));
+
+        // println!("Error AFTER: {:?}", vel_error);
+        // println!("-----");
+
+        let integral = self.ki.apply(vel_error_arw_modified);
+
+        self.accumulator.add_north(integral.north() * dt.raw());
+        self.accumulator.add_east(integral.east() * dt.raw());
+
+        if vel_error.down().abs() > DEADBAND.mps() {
+            if saturation_error.down().raw() * vel_error.down().raw() <= 0.0 {
+                self.accumulator.add_down(integral.down() * dt.raw());
+            }
         }
-        if saturation_error.east().raw() * vel_error.east().raw() <= 0.0 {
-            self.accumulator.add_east(integral.east() * dt.raw());
-        }
-        if saturation_error.down().raw() * vel_error.down().raw() <= 0.0 {
-            self.accumulator.add_down(integral.down() * dt.raw());
-        }
-        self.accumulator = self
-            .accumulator
-            .clamping_down(3.mps2())
-            .clamping_north(3.mps2())
-            .clamping_east(3.mps2());
 
         self.accumulator
     }
@@ -115,9 +127,13 @@ impl VelocityController {
         let error = v_target - v_current;
 
         let p = self.kp.apply(error);
-        let i = self.integral.update(error, saturation_error, dt);
+        let i = self.integral.update(error, saturation_error, &self.kp, dt);
         let d = self.kd.apply(acc_current);
 
         acc_ff + p + i - d
+    }
+
+    pub fn reset_integral(&mut self) {
+        self.integral.accumulator = AccelerationNed::zero();
     }
 }

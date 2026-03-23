@@ -44,37 +44,30 @@ impl TrajectorySetpoint {
 
 impl TrajectoryGenerator {
     pub fn new(
-        horizontal_limits: TrajectoryLimits,
-        vertical_limits: TrajectoryLimits,
+        horizontal_limits_auto: TrajectoryLimits,
+        vertical_limits_auto: TrajectoryLimits,
+        horizontal_limits_manual: TrajectoryLimits,
+        vertical_limits_manual: TrajectoryLimits,
         position_gain: PerSecond,
     ) -> Self {
         Self {
             north: AxisTrajectory::new(
-                SCurveProfile::new(
-                    horizontal_limits.max_jerk,
-                    horizontal_limits.max_acceleration,
-                    horizontal_limits.max_velocity,
-                ),
+                SCurveProfile::new(),
                 position_gain,
-                horizontal_limits.cascade_delay,
+                horizontal_limits_auto,
+                horizontal_limits_manual,
             ),
             east: AxisTrajectory::new(
-                SCurveProfile::new(
-                    horizontal_limits.max_jerk,
-                    horizontal_limits.max_acceleration,
-                    horizontal_limits.max_velocity,
-                ),
+                SCurveProfile::new(),
                 position_gain,
-                horizontal_limits.cascade_delay,
+                horizontal_limits_auto,
+                horizontal_limits_manual,
             ),
             down: AxisTrajectory::new(
-                SCurveProfile::new(
-                    vertical_limits.max_jerk,
-                    vertical_limits.max_acceleration,
-                    vertical_limits.max_velocity,
-                ),
+                SCurveProfile::new(),
                 position_gain,
-                vertical_limits.cascade_delay,
+                vertical_limits_auto,
+                vertical_limits_manual,
             ),
         }
     }
@@ -100,10 +93,9 @@ mod trajectory_generator_tests {
             max_velocity: 10.mps(),
             max_acceleration: 3.mps2(),
             max_jerk: 5.mps3(),
-            cascade_delay: 0.seconds(),
         };
         let mut generator =
-            TrajectoryGenerator::new(limits.clone(), limits.clone(), PerSecond(0.5));
+            TrajectoryGenerator::new(limits, limits, limits, limits, PerSecond(0.5));
 
         let target = FlightTarget {
             north: AxisTarget::Velocity(3.mps()),
@@ -128,16 +120,19 @@ mod trajectory_generator_tests {
             max_velocity: 10.mps(),
             max_acceleration: 3.mps2(),
             max_jerk: 5.mps3(),
-            cascade_delay: 0.seconds(),
         };
         let vertical_limits = TrajectoryLimits {
             max_velocity: 5.mps(),
             max_acceleration: 3.mps2(),
             max_jerk: 5.mps3(),
-            cascade_delay: 0.seconds(),
         };
-        let mut generator =
-            TrajectoryGenerator::new(horizontal_limits, vertical_limits, PerSecond(0.5));
+        let mut generator = TrajectoryGenerator::new(
+            horizontal_limits,
+            vertical_limits,
+            horizontal_limits,
+            vertical_limits,
+            PerSecond(0.5),
+        );
 
         // Give north and east initial velocity
         generator.north.reset(0.meters(), 4.mps(), 0.mps2());

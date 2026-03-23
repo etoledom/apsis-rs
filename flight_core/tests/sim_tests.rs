@@ -217,6 +217,16 @@ fn velocity_to_zero_overshoot_within_tolerance() {
                 simulator.state.velocity_ned.north(),
                 max_north
             );
+
+            println!(
+                "tick={}, pos={:.2}, vel={:.2}, pitch={:.1}°, pitch_rate={:.3} rad/s, pitch_input={:.3}",
+                i,
+                simulator.state.position_ned.north(),
+                simulator.state.velocity_ned.north(),
+                simulator.state.attitude.pitch().to_degrees().0,
+                simulator.state.angular_velocity_body.y().raw(),
+                inputs.pitch.raw(),
+            );
         }
     }
 

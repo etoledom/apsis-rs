@@ -106,8 +106,10 @@ impl FlightController {
     pub fn new(
         limits: AirframeLimits,
         velocity_max: VelocityNed,
-        h_trajectory_limits: TrajectoryLimits,
-        v_trajectory_limits: TrajectoryLimits,
+        h_trajectory_limits_auto: TrajectoryLimits,
+        v_trajectory_limits_auto: TrajectoryLimits,
+        h_trajectory_limits_manual: TrajectoryLimits,
+        v_trajectory_limits_manual: TrajectoryLimits,
     ) -> Self {
         Self {
             target: FlightTarget {
@@ -116,8 +118,10 @@ impl FlightController {
                 down: AxisTarget::Position(0.meters()),
             },
             trajectory_generator: TrajectoryGenerator::new(
-                h_trajectory_limits,
-                v_trajectory_limits,
+                h_trajectory_limits_auto,
+                v_trajectory_limits_auto,
+                h_trajectory_limits_manual,
+                v_trajectory_limits_manual,
                 PerSecond(0.8),
             ),
             position_controller: PositionController::new(velocity_max),
@@ -135,7 +139,7 @@ impl FlightController {
     pub fn for_drone(drone: impl Drone) -> Self {
         let limits = AirframeLimits::from_drone(&drone);
 
-        let _max_forward_acc = limits.max_acceleration.forward();
+        let max_forward_acc = limits.max_acceleration.forward();
         let max_lateral_acc = limits.max_acceleration.right();
         let max_vertical_acc = limits.max_acceleration.down();
 
@@ -145,7 +149,7 @@ impl FlightController {
         let horizontal_jerk = G_EARTH * max_pitch_rate;
         let vertical_jerk = max_vertical_acc / drone.motor_time_constant();
 
-        // let max_forward_velocity = (max_forward_acc / drone.drag_coefficient().horizontal).sqrt();
+        let max_forward_velocity = (max_forward_acc / drone.drag_coefficient().horizontal).sqrt();
         let max_lateral_velocity = (max_lateral_acc / drone.drag_coefficient().horizontal).sqrt();
         let max_vertical_velocity: Velocity =
             (max_vertical_acc / drone.drag_coefficient().vertical).sqrt();
@@ -153,22 +157,26 @@ impl FlightController {
         let trajectory_acc_factor = 0.7;
         let trajectory_jerk_factor = 0.7;
 
-        let pitch_time_constant =
-            drone.pitch_damping_coefficient() / drone.max_pitch_acceleration();
-        let horizontal_cascade_delay = pitch_time_constant * 0.4;
-        let vertical_cascade_delay = drone.motor_time_constant() * 0.4; // vertical responds via throttle, not pitch
+        let horizontal_limits_manual = TrajectoryLimits {
+            max_velocity: 10.mps(),
+            max_acceleration: max_lateral_acc,
+            max_jerk: horizontal_jerk,
+        };
+        let vertical_limits_manual = TrajectoryLimits {
+            max_velocity: max_forward_velocity,
+            max_acceleration: max_vertical_acc,
+            max_jerk: vertical_jerk,
+        };
 
-        let horizontal_limits = TrajectoryLimits {
+        let horizontal_limits_auto = TrajectoryLimits {
             max_velocity: 5.mps(),
             max_acceleration: max_lateral_acc * trajectory_acc_factor,
             max_jerk: horizontal_jerk * trajectory_jerk_factor,
-            cascade_delay: horizontal_cascade_delay,
         };
-        let vertical_limits = TrajectoryLimits {
+        let vertical_limits_auto = TrajectoryLimits {
             max_velocity: 3.mps(),
             max_acceleration: max_vertical_acc * trajectory_acc_factor,
             max_jerk: vertical_jerk * trajectory_jerk_factor,
-            cascade_delay: vertical_cascade_delay,
         };
 
         Self::new(
@@ -178,8 +186,10 @@ impl FlightController {
                 max_lateral_velocity,
                 max_vertical_velocity,
             ),
-            horizontal_limits,
-            vertical_limits,
+            horizontal_limits_auto,
+            vertical_limits_auto,
+            horizontal_limits_manual,
+            vertical_limits_manual,
         )
     }
 
@@ -221,13 +231,6 @@ impl FlightController {
             self.prev_saturation_error,
             dt,
         );
-
-        // let acc_target = self.velocity_ned_controller.update(
-        //     telemetry.velocity_ned,
-        //     acc_ff,
-        //     self.compute_drag_feedforward(telemetry.velocity_ned, &telemetry.attitude),
-        //     dt,
-        // );
 
         let acc_target_real = self.clamp_acceleration(acc_target, &telemetry.attitude);
         self.prev_saturation_error = acc_target - acc_target_real;
@@ -276,6 +279,7 @@ impl FlightController {
             telemetry.velocity_ned.down(),
             telemetry.acceleration_ned.down(),
         );
+        self.velocity_controller.reset_integral();
     }
 
     fn clamp_acceleration(
@@ -399,14 +403,24 @@ impl FlightController {
     }
 
     pub fn set_target_north(&mut self, north: AxisTarget) {
+        if matches!(north, AxisTarget::Loiter) && !matches!(self.target.north, AxisTarget::Loiter) {
+            self.initialized = false
+        }
+
         self.target.north = north;
     }
 
     pub fn set_target_east(&mut self, east: AxisTarget) {
+        if matches!(east, AxisTarget::Loiter) && !matches!(self.target.east, AxisTarget::Loiter) {
+            self.initialized = false
+        }
         self.target.east = east;
     }
 
     pub fn set_target_down(&mut self, down: AxisTarget) {
+        if matches!(down, AxisTarget::Loiter) && !matches!(self.target.down, AxisTarget::Loiter) {
+            self.initialized = false
+        }
         self.target.down = down;
     }
 

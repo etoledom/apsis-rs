@@ -3,6 +3,8 @@ use primitives::{
     units::*,
 };
 
+use crate::controller::trajectory_generator::trajectory_limits::TrajectoryLimits;
+
 pub struct SCurveSetpoint {
     pub position: Meters,
     pub velocity: Velocity,
@@ -23,11 +25,8 @@ pub struct SCurveProfile {
 }
 
 impl SCurveProfile {
-    pub fn new(max_jerk: Jerk, max_acceleration: Acceleration, max_velocity: Velocity) -> Self {
+    pub fn new() -> Self {
         Self {
-            max_jerk,
-            max_acceleration,
-            max_velocity,
             ..Default::default()
         }
     }
@@ -302,13 +301,42 @@ impl SCurveProfile {
         }
     }
 
-    pub fn with_limits(self, max_jerk: Jerk, max_acceleration: Acceleration) -> Self {
+    pub fn update_limits(
+        self,
+        max_jerk: Jerk,
+        max_acceleration: Acceleration,
+        max_velocity: Velocity,
+    ) -> Self {
         Self {
             max_jerk,
             max_acceleration,
+            max_velocity,
             ..self
         }
     }
+
+    pub fn with_limits(
+        self,
+        max_jerk: Jerk,
+        max_acceleration: Acceleration,
+        max_velocity: Velocity,
+    ) -> Self {
+        Self {
+            max_jerk,
+            max_acceleration,
+            max_velocity,
+            ..self
+        }
+    }
+
+    pub fn with_trajectory_limits(self, limits: TrajectoryLimits) -> Self {
+        self.with_limits(
+            limits.max_jerk,
+            limits.max_acceleration,
+            limits.max_velocity,
+        )
+    }
+
     pub fn position(&self) -> Meters {
         self.position
     }
@@ -419,11 +447,9 @@ mod tests {
     #[test]
     fn vel_at_zero_acc_when_already_zero() {
         // No acceleration — returns current velocity unchanged
-        let profile = SCurveProfile::new(10.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            3.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(10.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 3.mps(), 0.mps2());
         assert!((profile.compute_vel_at_zero_acc().raw() - 3.0).abs() < EPSILON);
     }
 
@@ -433,11 +459,9 @@ mod tests {
         // j_cancel = -1 * 8 = -8 m/s³
         // t_cancel = -4 / -8 = 0.5s
         // v = 2 + 4*0.5 + 0.5*(-8)*0.25 = 2 + 2 - 1 = 3 m/s
-        let profile = SCurveProfile::new(8.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            2.mps(),
-            4.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(8.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 2.mps(), 4.mps2());
         assert!((profile.compute_vel_at_zero_acc().raw() - 3.0).abs() < EPSILON);
     }
 
@@ -447,11 +471,9 @@ mod tests {
         // j_cancel = -(-1) * 12 = +12 m/s³
         // t_cancel = -(-6) / 12 = 0.5s
         // v = 10 + (-6)*0.5 + 0.5*12*0.25 = 10 - 3 + 1.5 = 8.5 m/s
-        let profile = SCurveProfile::new(12.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            10.mps(),
-            (-6.0).mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(12.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 10.mps(), (-6.0).mps2());
         assert!((profile.compute_vel_at_zero_acc().raw() - 8.5).abs() < EPSILON);
     }
 
@@ -613,22 +635,18 @@ mod tests {
     #[test]
     fn compute_direction_target_above() {
         // v=2, a=0, target=5 → vel_at_zero_acc=2, target above → +1
-        let profile = SCurveProfile::new(10.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            2.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(10.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 2.mps(), 0.mps2());
         assert!((profile.compute_direction(5.mps()) - 1.0).abs() < EPSILON);
     }
 
     #[test]
     fn compute_direction_target_below() {
         // v=8, a=0, target=3 → vel_at_zero_acc=8, target below → -1
-        let profile = SCurveProfile::new(10.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            8.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(10.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 8.mps(), 0.mps2());
         assert!((profile.compute_direction(3.mps()) - (-1.0)).abs() < EPSILON);
     }
 
@@ -637,11 +655,9 @@ mod tests {
         // v=5, a=6, max_jerk=12 → vel_at_zero_acc = 5 + 6*0.5 + 0.5*(-12)*0.25 = 6.5
         // target=4 → 4 < 6.5 → direction = -1
         // Even though v=5 > target=4, acceleration is carrying us further away
-        let profile = SCurveProfile::new(12.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            5.mps(),
-            6.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(12.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 5.mps(), 6.mps2());
         assert!((profile.compute_direction(4.mps()) - (-1.0)).abs() < EPSILON);
     }
 
@@ -650,11 +666,9 @@ mod tests {
         // vel_at_zero_acc exactly equals target → direction = sign(a0)
         // a0=4, max_jerk=8 → vel_at_zero_acc = 2 + 4*0.5 + 0.5*(-8)*0.25 = 3.0
         // target=3 → exact match → direction = sign(4) = +1 (brake positive acc)
-        let profile = SCurveProfile::new(8.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            2.mps(),
-            4.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(8.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 2.mps(), 4.mps2());
         assert!((profile.compute_direction(3.mps()) - 1.0).abs() < EPSILON);
     }
 
@@ -668,11 +682,9 @@ mod tests {
         // t3 = 0/2 + 2 = 2.0
         // vel_t1 = 0 + 0.5*2*4 = 4, vel_t3 = 4*2 - 0.5*2*4 = 4
         // remaining = 8 - 4 - 4 = 0 → t2 = 0
-        let profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let (t1, t2, t3, dir) = profile.compute_durations(8.mps());
         assert!((dir - 1.0).abs() < EPSILON);
         assert!((t1.raw() - 2.0).abs() < EPSILON);
@@ -690,11 +702,9 @@ mod tests {
         // vel_t1 = 0 + 0.5*2*4 = 4, a_plateau = 4
         // vel_t3 = 4*2 - 0.5*2*4 = 4
         // remaining = 10 - 4 - 4 = 2, t2 = 2/4 = 0.5
-        let profile = SCurveProfile::new(2.mps3(), 4.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 4.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let (t1, t2, t3, dir) = profile.compute_durations(10.mps());
         assert!((dir - 1.0).abs() < EPSILON);
         assert!((t1.raw() - 2.0).abs() < EPSILON);
@@ -714,11 +724,9 @@ mod tests {
         //   Both positive → t1 = 2.0
         // t3 = 0/-2 + 2 = 2.0
         // t2 = 0 (symmetric)
-        let profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            8.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 8.mps(), 0.mps2());
         let (t1, t2, t3, dir) = profile.compute_durations(0.mps());
         assert!((dir - (-1.0)).abs() < EPSILON);
         assert!((t1.raw() - 2.0).abs() < EPSILON);
@@ -729,11 +737,9 @@ mod tests {
     #[test]
     fn compute_durations_already_at_target() {
         // v=5, a=0, target=5 → direction=0, all durations zero
-        let profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            5.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 5.mps(), 0.mps2());
         let (t1, t2, t3, _dir) = profile.compute_durations(5.mps());
         assert!(t1.raw().abs() < EPSILON);
         assert!(t2.raw().abs() < EPSILON);
@@ -750,11 +756,9 @@ mod tests {
         // a = 0 + 2*0.5 = 1.0
         // v = 0 + 0 + 0.5*2*0.25 = 0.25
         // x = 0 + 0 + 0 + (1/6)*2*0.125 = 0.04167
-        let mut profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let sp = profile.update(10.mps(), 0.5.seconds());
         assert!((sp.acceleration.raw() - 1.0).abs() < 1e-9);
         assert!((sp.velocity.raw() - 0.25).abs() < 1e-9);
@@ -764,11 +768,9 @@ mod tests {
     #[test]
     fn update_reaches_target_velocity() {
         // Run enough ticks to reach target, verify convergence
-        let mut profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(5.mps3(), 3.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let dt = 0.01.seconds();
         let mut sp = SCurveSetpoint {
             position: 0.meters(),
@@ -785,11 +787,9 @@ mod tests {
     #[test]
     fn update_deceleration_to_zero() {
         // Start at v=6, decelerate to 0
-        let mut profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            6.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(5.mps3(), 3.mps2(), 10.mps())
+            .with_state(0.meters(), 6.mps(), 0.mps2());
         let dt = 0.01.seconds();
         let mut sp = SCurveSetpoint {
             position: 0.meters(),
@@ -808,11 +808,9 @@ mod tests {
     #[test]
     fn update_velocity_never_exceeds_max() {
         // max_velocity=3, target=10 → should clamp to 3
-        let mut profile = SCurveProfile::new(5.mps3(), 5.mps2(), 3.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(5.mps3(), 5.mps2(), 3.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let dt = 0.01.seconds();
         for _ in 0..1000 {
             profile.update(10.mps(), dt);
@@ -823,11 +821,9 @@ mod tests {
     #[test]
     fn update_acceleration_never_exceeds_max() {
         // Track peak acceleration across all ticks
-        let mut profile = SCurveProfile::new(100.mps3(), 5.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(100.mps3(), 5.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let dt = 0.01.seconds();
         let mut max_acc = 0.0_f64;
         for _ in 0..500 {
@@ -841,19 +837,15 @@ mod tests {
     fn update_state_is_preserved_between_calls() {
         // Two ticks of 0.5s should equal one tick of 1.0s... approximately
         // (not exact because durations are recomputed, but should be close)
-        let mut profile_a = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile_a = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         profile_a.update(10.mps(), 0.5.seconds());
         let sp_a = profile_a.update(10.mps(), 0.5.seconds());
 
-        let mut profile_b = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let mut profile_b = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         let sp_b = profile_b.update(10.mps(), 1.0.seconds());
 
         assert!((sp_a.velocity.raw() - sp_b.velocity.raw()).abs() < 0.01);
@@ -864,11 +856,9 @@ mod tests {
 
     #[test]
     fn stopping_distance_from_rest_is_zero() {
-        let profile = SCurveProfile::new(5.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            0.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(5.mps3(), 3.mps2(), 10.mps())
+            .with_state(0.meters(), 0.mps(), 0.mps2());
         assert!(profile.stopping_distance().raw().abs() < EPSILON);
     }
 
@@ -885,11 +875,9 @@ mod tests {
         //   a = -4 + 2*2 = 0
         //   v = 4 + (-4)*2 + 0.5*2*4 = 4 - 8 + 4 = 0
         //   x = 13.333 + 4*2 + 0.5*(-4)*4 + (1/6)*2*8 = 13.333 + 8 - 8 + 2.667 = 16
-        let profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            8.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 8.mps(), 0.mps2());
         assert!((profile.stopping_distance().raw() - 16.0).abs() < 1e-9);
         assert!((profile.stopping_position().raw() - 16.0).abs() < 1e-9);
     }
@@ -897,11 +885,9 @@ mod tests {
     #[test]
     fn stopping_position_accounts_for_initial_position() {
         // Same as above but starting at x=100
-        let profile = SCurveProfile::new(2.mps3(), 10.mps2(), 10.mps()).with_state(
-            100.meters(),
-            8.mps(),
-            0.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(2.mps3(), 10.mps2(), 10.mps())
+            .with_state(100.meters(), 8.mps(), 0.mps2());
         assert!((profile.stopping_distance().raw() - 16.0).abs() < 1e-9);
         assert!((profile.stopping_position().raw() - 116.0).abs() < 1e-9);
     }
@@ -914,11 +900,9 @@ mod tests {
         // target=0 < 5.75 → direction=-1, j=-6
         // Must first cancel positive acceleration, then decelerate
         // stopping_distance should be > 0 (moving forward while braking)
-        let profile = SCurveProfile::new(6.mps3(), 10.mps2(), 10.mps()).with_state(
-            0.meters(),
-            5.mps(),
-            3.mps2(),
-        );
+        let profile = SCurveProfile::new()
+            .update_limits(6.mps3(), 10.mps2(), 10.mps())
+            .with_state(0.meters(), 5.mps(), 3.mps2());
         let dist = profile.stopping_distance();
         assert!(dist.raw() > 0.0);
     }
@@ -926,11 +910,9 @@ mod tests {
     #[test]
     fn stopping_distance_matches_simulation() {
         // Run update(0) until stopped, compare final position with stopping_position
-        let mut profile = SCurveProfile::new(4.mps3(), 3.mps2(), 10.mps()).with_state(
-            0.meters(),
-            6.mps(),
-            0.mps2(),
-        );
+        let mut profile = SCurveProfile::new()
+            .update_limits(4.mps3(), 3.mps2(), 10.mps())
+            .with_state(0.meters(), 6.mps(), 0.mps2());
         let predicted = profile.stopping_position();
 
         let dt = 0.01.seconds();

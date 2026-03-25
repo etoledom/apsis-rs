@@ -1,9 +1,8 @@
 ## Development Plan
 
 [x] Throttle / altitude hold
-[] Forward velocity hold
-[] Roll velocity hold
-[] Yaw rate
-[] Clamp tilt limits
-[] Add damping terms
-[] Do not implement everything at once.
+[x] Forward velocity hold
+[x] Roll velocity hold
+[x] Yaw rate
+[x] Clamp tilt limits
+[x] Add damping terms

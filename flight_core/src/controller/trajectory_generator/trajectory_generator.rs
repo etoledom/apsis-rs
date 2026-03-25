@@ -1,6 +1,6 @@
 use primitives::{
     frames::{AccelerationNed, Ned, PositionNed, VelocityNed},
-    units::{PerSecond, Seconds},
+    units::{PerSecond, Seconds, SecondsLiteral},
 };
 
 use crate::controller::{
@@ -56,13 +56,15 @@ impl TrajectoryGenerator {
                 position_gain,
                 horizontal_limits_auto,
                 horizontal_limits_manual,
-            ),
+            )
+            .with_delay(0.2.seconds()),
             east: AxisTrajectory::new(
                 SCurveProfile::new(),
                 position_gain,
                 horizontal_limits_auto,
                 horizontal_limits_manual,
-            ),
+            )
+            .with_delay(0.1.seconds()),
             down: AxisTrajectory::new(
                 SCurveProfile::new(),
                 position_gain,

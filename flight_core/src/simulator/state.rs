@@ -6,7 +6,7 @@ use primitives::{
 
 use crate::inputs::Inputs;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct State {
     pub altitude: Meters,
 

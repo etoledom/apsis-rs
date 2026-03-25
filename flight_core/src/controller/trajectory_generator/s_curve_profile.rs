@@ -11,7 +11,7 @@ pub struct SCurveSetpoint {
     pub acceleration: Acceleration,
 }
 
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone)]
 pub struct SCurveProfile {
     // kinematic state
     position: Meters,
@@ -316,25 +316,35 @@ impl SCurveProfile {
     }
 
     pub fn with_limits(
-        self,
+        mut self,
         max_jerk: Jerk,
         max_acceleration: Acceleration,
         max_velocity: Velocity,
     ) -> Self {
-        Self {
-            max_jerk,
-            max_acceleration,
-            max_velocity,
-            ..self
-        }
+        self.set_limits(max_jerk, max_acceleration, max_velocity);
+        self
     }
 
-    pub fn with_trajectory_limits(self, limits: TrajectoryLimits) -> Self {
-        self.with_limits(
-            limits.max_jerk,
-            limits.max_acceleration,
-            limits.max_velocity,
-        )
+    pub fn set_limits(
+        &mut self,
+        max_jerk: Jerk,
+        max_acceleration: Acceleration,
+        max_velocity: Velocity,
+    ) {
+        self.max_jerk = max_jerk;
+        self.max_acceleration = max_acceleration;
+        self.max_velocity = max_velocity;
+    }
+
+    pub fn with_trajectory_limits(mut self, limits: TrajectoryLimits) -> Self {
+        self.set_trajectory_limits(limits);
+        self
+    }
+
+    pub fn set_trajectory_limits(&mut self, limits: TrajectoryLimits) {
+        self.max_jerk = limits.max_jerk;
+        self.max_acceleration = limits.max_acceleration;
+        self.max_velocity = limits.max_velocity;
     }
 
     pub fn position(&self) -> Meters {

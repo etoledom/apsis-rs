@@ -52,7 +52,7 @@ fn north_velocity() {
 #[test]
 fn east_velocity() {
     let target_velocity = VelocityNed::new(0.mps(), 2.mps(), 0.mps());
-    let delta_t = 0.1.seconds();
+    let delta_t = 0.01.seconds();
     let drone = DefaultDrone {};
 
     let mut simulator = Simulator::new(drone);
@@ -61,7 +61,7 @@ fn east_velocity() {
     flight_controller.set_target_east(AxisTarget::Velocity(target_velocity.east()));
     flight_controller.set_target_down(AxisTarget::Loiter);
 
-    for _ in 0..100 {
+    for _ in 0..1000 {
         let inputs = flight_controller.update(&simulator.state, delta_t);
         simulator.tick(&inputs, delta_t);
     }

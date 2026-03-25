@@ -31,7 +31,7 @@ impl AxisTrajectory {
             profile,
             loiter_target: None,
             position_gain: gain,
-            cascade_delay: 0.2.seconds(),
+            cascade_delay: 0.seconds(),
             auto_limits,
             manual_limits,
         }
@@ -41,12 +41,12 @@ impl AxisTrajectory {
         let vel_target = match target {
             AxisTarget::Velocity(velocity_target) => {
                 self.loiter_target = None;
-                self.profile = self.profile.with_trajectory_limits(self.manual_limits);
+                self.profile.set_trajectory_limits(self.manual_limits);
                 *velocity_target
             }
             AxisTarget::Position(position_target) => {
                 self.loiter_target = None;
-                self.profile = self.profile.with_trajectory_limits(self.auto_limits);
+                self.profile.set_trajectory_limits(self.auto_limits);
                 self.velocity_from_position_error(*position_target)
             }
             AxisTarget::Loiter => {
@@ -55,7 +55,7 @@ impl AxisTrajectory {
                     let delay_distance = self.profile.velocity() * self.cascade_delay;
                     stop + delay_distance
                 });
-                self.profile = self.profile.with_trajectory_limits(self.auto_limits);
+                self.profile.set_trajectory_limits(self.auto_limits);
 
                 self.velocity_from_position_error(pos_target)
             }
@@ -90,6 +90,13 @@ impl AxisTrajectory {
     pub fn reset(&mut self, position: Meters, velocity: Velocity, acceleration: Acceleration) {
         self.profile.reset(position, velocity, acceleration);
         self.loiter_target = None;
+    }
+
+    pub fn with_delay(self, cascade_delay: Seconds) -> Self {
+        Self {
+            cascade_delay,
+            ..self
+        }
     }
 }
 
@@ -146,7 +153,12 @@ mod tests {
         let mut axis = AxisTrajectory::new(profile, PerSecond(0.5), limits(), limits());
         axis.update(&AxisTarget::Loiter, 0.01.seconds());
 
-        assert!((axis.loiter_target.unwrap().raw() - expected_stop.raw()).abs() < 1e-9);
+        assert!(
+            (axis.loiter_target.unwrap().raw() - expected_stop.raw()).abs() < 1e-9,
+            "Should capture stopping possition. Captured: {}, expected: {}",
+            axis.loiter_target.unwrap(),
+            expected_stop
+        );
     }
 
     #[test]

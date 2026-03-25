@@ -1,7 +1,6 @@
 use primitives::{
     control::{Pitch, Roll, Yaw},
     frames::AngularVelocityFrd,
-    traits::RawRepresentable,
     units::Seconds,
 };
 

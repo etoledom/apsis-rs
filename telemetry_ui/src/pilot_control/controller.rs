@@ -3,8 +3,14 @@ use std::collections::HashSet;
 use eframe::egui::{self, Key};
 use primitives::units::{AngularVelocity, DegreesPerSecond, Velocity, VelocityLiteral};
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum Target {
+    Pilot(PilotTarget),
+    Autopilot,
+}
+
 #[derive(Clone, Copy, Default, PartialEq)]
-pub struct Target {
+pub struct PilotTarget {
     pub forward: Velocity,
     pub right: Velocity,
     pub up: Velocity,
@@ -12,7 +18,7 @@ pub struct Target {
 }
 
 pub trait Controller {
-    fn handle_input(&self, current: &Target) -> Target;
+    fn handle_input(&self, current: &PilotTarget) -> PilotTarget;
 }
 
 pub struct KeyboardController<'a> {
@@ -26,7 +32,7 @@ impl<'a> KeyboardController<'a> {
 }
 
 impl<'a> Controller for KeyboardController<'a> {
-    fn handle_input(&self, current: &Target) -> Target {
+    fn handle_input(&self, current: &PilotTarget) -> PilotTarget {
         let max_vel = 7.mps();
         let step = 0.1.mps(); // m/s per frame
         let mut updated_target = current.clone();

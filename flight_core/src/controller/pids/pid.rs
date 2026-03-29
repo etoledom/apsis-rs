@@ -57,7 +57,6 @@ pub struct PID<Error, Output, Kp, Ki, Kd> {
     pub kd: Kd,
 
     limits: Option<PIDLimits<Output>>,
-    conditional_integration: bool,
 
     pub integral: Error,
     pub previous_error: Option<Error>,
@@ -94,14 +93,6 @@ where
             limits: None,
             integral: Error::default(),
             previous_error: None,
-            conditional_integration: false,
-        }
-    }
-
-    pub fn with_conditional_integration(self) -> Self {
-        Self {
-            conditional_integration: true,
-            ..self
         }
     }
 
@@ -156,7 +147,6 @@ where
 
 pub type PositionPID = PID<Meters, Velocity, LinearGain, LinearGain, LinearGain>;
 pub type AngularPID = PID<Radians, AngularVelocity, LinearGain, LinearGain, LinearGain>;
-pub type VelocityPID = PID<Velocity, Acceleration, LinearGain, LinearGain, LinearGain>;
 pub type RollRatePID = PID<AngularVelocity, Roll, LinearGain, LinearGain, LinearGain>;
 pub type PitchRatePID = PID<AngularVelocity, Pitch, LinearGain, LinearGain, LinearGain>;
 pub type YawRatePID = PID<AngularVelocity, Yaw, LinearGain, LinearGain, LinearGain>;

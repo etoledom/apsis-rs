@@ -8,7 +8,6 @@ mod position_controller;
 mod rate_controller;
 mod trajectory_generator;
 mod velocity_controller;
-mod velocity_ned_controller;
 
 #[cfg(test)]
 pub(crate) mod tests_utils;

@@ -4,7 +4,7 @@ use crate::{
     impl_debug_unit, impl_initializable, impl_literal, impl_raw_representable,
     impl_units_arithmetics,
     traits::{Initializable, RawRepresentable},
-    units::{PerSecond, Seconds, Velocity},
+    units::{MetersSquare, PerSecond, Seconds, Velocity},
 };
 
 #[repr(transparent)]
@@ -14,6 +14,10 @@ pub struct Meters(f64);
 impl Meters {
     pub const fn radius_earth() -> Self {
         Self(6371000.0)
+    }
+
+    pub fn pow_2(self) -> MetersSquare {
+        MetersSquare::new(self.0.powi(2))
     }
 }
 
@@ -28,6 +32,14 @@ impl Mul<PerSecond> for Meters {
 
     fn mul(self, rhs: PerSecond) -> Self::Output {
         Velocity::new(self.0 * rhs.0)
+    }
+}
+
+impl Mul for Meters {
+    type Output = MetersSquare;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        MetersSquare::new(self.0 * rhs.0)
     }
 }
 

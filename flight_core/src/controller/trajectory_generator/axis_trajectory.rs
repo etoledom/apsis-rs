@@ -71,14 +71,17 @@ impl AxisTrajectory {
             .clamping(-self.profile.max_velocity(), self.profile.max_velocity())
     }
 
+    #[cfg(test)]
     pub fn position(&self) -> Meters {
         self.profile.position()
     }
 
+    #[cfg(test)]
     pub fn velocity(&self) -> Velocity {
         self.profile.velocity()
     }
 
+    #[allow(dead_code)]
     pub fn acceleration(&self) -> Acceleration {
         self.profile.acceleration()
     }

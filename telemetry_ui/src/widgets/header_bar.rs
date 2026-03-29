@@ -10,6 +10,7 @@ pub struct HeaderBar {
     pub status: FlightStatus,
 }
 
+#[derive(Clone, Copy)]
 pub enum FlightMode {
     Manual,
     Autopilot,
@@ -17,7 +18,7 @@ pub enum FlightMode {
 
 pub enum FlightStatus {
     Ok,
-    Warning(String),
+    Warning,
 }
 
 impl HeaderBar {
@@ -30,7 +31,7 @@ impl HeaderBar {
                     //
                     let (status_text, status_color) = match &self.status {
                         FlightStatus::Ok => ("● OK", theme::GREEN),
-                        FlightStatus::Warning(_) => ("● WARN", theme::YELLOW),
+                        FlightStatus::Warning => ("● WARN", theme::YELLOW),
                     };
                     StatusBox::new(status_text, status_color).show(ui);
 

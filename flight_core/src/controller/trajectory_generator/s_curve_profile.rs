@@ -31,12 +31,6 @@ impl SCurveProfile {
         }
     }
 
-    /// Compute the distance needed to decelerate to zero velocity
-    /// from current state using current limits.
-    pub fn stopping_distance(&self) -> Meters {
-        self.stopping_position() - self.position
-    }
-
     /// Compute the position at which the profile will reach zero velocity.
     pub fn stopping_position(&self) -> Meters {
         let (t1, t2, t3, direction) = self.compute_durations(0.mps());
@@ -287,6 +281,7 @@ impl SCurveProfile {
         )
     }
 
+    #[cfg(test)]
     pub fn with_state(
         self,
         position: Meters,
@@ -301,6 +296,7 @@ impl SCurveProfile {
         }
     }
 
+    #[cfg(test)]
     pub fn update_limits(
         self,
         max_jerk: Jerk,
@@ -313,32 +309,6 @@ impl SCurveProfile {
             max_velocity,
             ..self
         }
-    }
-
-    pub fn with_limits(
-        mut self,
-        max_jerk: Jerk,
-        max_acceleration: Acceleration,
-        max_velocity: Velocity,
-    ) -> Self {
-        self.set_limits(max_jerk, max_acceleration, max_velocity);
-        self
-    }
-
-    pub fn set_limits(
-        &mut self,
-        max_jerk: Jerk,
-        max_acceleration: Acceleration,
-        max_velocity: Velocity,
-    ) {
-        self.max_jerk = max_jerk;
-        self.max_acceleration = max_acceleration;
-        self.max_velocity = max_velocity;
-    }
-
-    pub fn with_trajectory_limits(mut self, limits: TrajectoryLimits) -> Self {
-        self.set_trajectory_limits(limits);
-        self
     }
 
     pub fn set_trajectory_limits(&mut self, limits: TrajectoryLimits) {
@@ -375,6 +345,14 @@ mod tests {
     use super::*;
 
     const EPSILON: f64 = 1e-10;
+
+    impl SCurveProfile {
+        /// Compute the distance needed to decelerate to zero velocity
+        /// from current state using current limits.
+        fn stopping_distance(&self) -> Meters {
+            self.stopping_position() - self.position
+        }
+    }
 
     //============= EVALUATE POLY =============//
 

@@ -15,7 +15,7 @@ use primitives::{
 };
 use sim_ui::*;
 
-use crate::pilot_control::controller::Target;
+use crate::pilot_control::{autopilot::ReturnToLaunch, controller::Target};
 
 fn main() -> eframe::Result {
     let (state_tx, state_rx) = std::sync::mpsc::channel();
@@ -26,7 +26,8 @@ fn main() -> eframe::Result {
         let mut simulator = Simulator::new(drone);
         let mut controller = FlightController::for_drone(drone);
         let mut last_time = Instant::now();
-
+        let mut back_home = false;
+        let mut autopilot = ReturnToLaunch::new();
         controller.set_target_north(AxisTarget::Position(20.meters()));
         controller.set_target_down(AxisTarget::Position(-10.meters()));
 
@@ -40,27 +41,54 @@ fn main() -> eframe::Result {
             state_tx.send(simulator.state.clone()).ok();
 
             // Pilot input
-            while let Ok(last_target) = target_rx.try_recv() {
-                let target: Target = last_target;
-                let vel_target_frd = VelocityFrd::new(target.forward, target.right, 0.mps());
-                let vel_target_ned = vel_target_frd.to_world_frame(&simulator.state.attitude);
+            while let Ok(target) = target_rx.try_recv() {
+                match target {
+                    Target::Pilot(target) => {
+                        back_home = false;
+                        let vel_target_frd =
+                            VelocityFrd::new(target.forward, target.right, 0.mps());
+                        let vel_target_ned =
+                            vel_target_frd.to_world_frame(&simulator.state.attitude);
 
-                // If there's no command from the pilot, use Lotier mode to hold position.
-                if target.up == 0.mps() {
-                    controller.set_target_down(AxisTarget::Loiter);
-                } else if target.up != 0.mps() {
-                    controller.set_target_down(AxisTarget::Velocity(-target.up));
+                        // If there's no command from the pilot, use Lotier mode to hold position.
+                        if target.up == 0.mps() {
+                            controller.set_target_down(AxisTarget::Loiter);
+                        } else if target.up != 0.mps() {
+                            controller.set_target_down(AxisTarget::Velocity(-target.up));
+                        }
+
+                        if target.forward != 0.mps() || target.right != 0.mps() {
+                            controller
+                                .set_target_north(AxisTarget::Velocity(vel_target_ned.north()));
+                            controller.set_target_east(AxisTarget::Velocity(vel_target_ned.east()));
+                        } else {
+                            controller.set_target_north(AxisTarget::Loiter);
+                            controller.set_target_east(AxisTarget::Loiter);
+                        }
+
+                        controller.set_yaw_rate_target(target.yaw_rate);
+                    }
+                    Target::Autopilot => {
+                        back_home = true;
+                    }
+                }
+            }
+
+            if back_home {
+                let state = &simulator.state;
+
+                let target = autopilot.update(state.position_ned);
+
+                if controller.get_target() != &target {
+                    controller.set_target_down(target.down);
+                    controller.set_target_east(target.east);
+                    controller.set_target_north(target.north);
                 }
 
-                if target.forward != 0.mps() || target.right != 0.mps() {
-                    controller.set_target_north(AxisTarget::Velocity(vel_target_ned.north()));
-                    controller.set_target_east(AxisTarget::Velocity(vel_target_ned.east()));
-                } else {
-                    controller.set_target_north(AxisTarget::Loiter);
-                    controller.set_target_east(AxisTarget::Loiter);
+                if autopilot.completed() {
+                    back_home = false;
+                    autopilot.reset();
                 }
-
-                controller.set_yaw_rate_target(target.yaw_rate);
             }
 
             std::thread::sleep(Duration::from_millis(10));

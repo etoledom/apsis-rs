@@ -41,8 +41,4 @@ where
         self.state = Some(filtered);
         filtered
     }
-
-    pub fn reset(&mut self) {
-        self.state = None;
-    }
 }

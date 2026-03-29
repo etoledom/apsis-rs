@@ -2,6 +2,7 @@ use eframe::egui::{self, Color32, Margin};
 
 // ── Primary palette ──
 pub const ACCENT: Color32 = Color32::from_rgb(0, 212, 255); // cyan — primary data
+#[allow(dead_code)]
 pub const ACCENT_DIM: Color32 = Color32::from_rgb(0, 140, 180); // dimmed cyan
 pub const ORANGE: Color32 = Color32::from_rgb(255, 107, 53); // east / descending
 pub const GREEN: Color32 = Color32::from_rgb(57, 255, 20); // ok / climbing

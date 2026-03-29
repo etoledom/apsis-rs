@@ -1,4 +1,4 @@
-use eframe::egui::{self, vec2};
+use eframe::egui::{self, RichText, vec2};
 use primitives::traits::RawRepresentable;
 
 use crate::{
@@ -12,11 +12,18 @@ pub struct VelocityTargetDisplay {
 }
 
 impl VelocityTargetDisplay {
-    pub fn show(&self, ui: &mut egui::Ui) {
-        let forward = self.target.forward.raw() as f32;
-        let right = self.target.right.raw() as f32;
-        let yaw = self.target.yaw_rate.raw() as f32;
-        let up = self.target.up.raw() as f32;
+    pub fn show(&self, ui: &mut egui::Ui, on_go_home: impl FnOnce()) {
+        let target = match self.target {
+            Target::Pilot(pilot_target) => pilot_target,
+            Target::Autopilot => Default::default(),
+        };
+
+        let is_autopilot = matches!(self.target, Target::Autopilot);
+
+        let forward = target.forward.raw() as f32;
+        let right = target.right.raw() as f32;
+        let yaw = target.yaw_rate.raw() as f32;
+        let up = target.up.raw() as f32;
 
         ui.set_min_width(ui.available_width());
 
@@ -63,11 +70,45 @@ impl VelocityTargetDisplay {
             })
         });
 
-        // Key hints
-        ui.add_space(4.0);
-        ui.label(theme::label("W/S: forward/backward"));
-        ui.label(theme::label("A/D: east/west"));
-        ui.label(theme::label("<-/-> : Yaw rotation"));
-        ui.label(theme::label("R: Reset"));
+        ui.horizontal(|ui| {
+            ui.vertical(|ui| {
+                // Key hints
+                ui.add_space(4.0);
+                ui.label(theme::label("W/S: forward/backward"));
+                ui.label(theme::label("A/D: east/west"));
+                ui.label(theme::label("<-/-> : Yaw rotation"));
+                ui.label(theme::label("R: Reset"));
+            });
+            ui.vertical(|ui| {
+                let background = if is_autopilot {
+                    theme::BG
+                } else {
+                    theme::PANEL
+                };
+                let text_color = if is_autopilot {
+                    theme::TEXT_DIM
+                } else {
+                    theme::TEXT
+                };
+                let stroke_color = if is_autopilot {
+                    theme::PANEL
+                } else {
+                    theme::ORANGE
+                };
+                let response = ui.add(
+                    egui::Button::new(
+                        RichText::new("GO HOME")
+                            .font(theme::value_font())
+                            .color(text_color),
+                    )
+                    .fill(background)
+                    .stroke(egui::Stroke::new(1.0, stroke_color)),
+                );
+
+                if !is_autopilot && response.clicked() {
+                    on_go_home();
+                }
+            });
+        });
     }
 }

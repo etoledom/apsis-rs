@@ -56,14 +56,14 @@ impl AirframeLimits {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AxisTarget {
     Velocity(Velocity),
     Position(Meters),
     Loiter,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FlightTarget {
     pub north: AxisTarget,
     pub east: AxisTarget,
@@ -308,32 +308,6 @@ impl FlightController {
         )
     }
 
-    fn compute_drag_feedforward(
-        &self,
-        velocity: VelocityNed,
-        attitude: &Quaternion,
-    ) -> AccelerationNed {
-        // - Transform velocity to body frame
-        // - Apply quadratic drag coefficients in body frame
-        // - Transform resulting acceleration back to world frame
-        //
-        let velocity_frd = velocity.to_frd(attitude);
-
-        let drag_h_body = AccelerationFrd::new(
-            // acc = v * |v| * drag[1/m] = m/s^2
-            velocity_frd.forward()
-                * velocity_frd.forward().abs()
-                * self.limits.drag.forward.value(),
-            velocity_frd.right() * velocity_frd.right().abs() * self.limits.drag.horizontal.value(),
-            0.mps2(),
-        );
-
-        let drag_h_world = drag_h_body.to_ned(attitude);
-        let drag_v_world =
-            velocity.down() * velocity.down().abs() * self.limits.drag.vertical.value();
-        AccelerationNed::new(drag_h_world.north(), drag_h_world.east(), drag_v_world)
-    }
-
     fn compute_angular_rates(
         &mut self,
         q_target: Quaternion,
@@ -541,20 +515,6 @@ mod flight_controller_tests {
             inputs.roll.raw() < 0.0,
             "should correct against positive roll"
         );
-    }
-
-    fn max_thrust_limit(limit: Acceleration) -> AirframeLimits {
-        AirframeLimits {
-            max_pitch: Radians(0.0),
-            max_roll: Radians(0.0),
-            max_thrust: limit,
-            max_acceleration: Default::default(),
-            drag: DragCoefficient {
-                vertical: Drag::new(0.0),
-                horizontal: Drag::new(0.0),
-                forward: Drag::new(0.0),
-            },
-        }
     }
 
     #[test]
@@ -939,76 +899,6 @@ mod flight_controller_tests {
     }
 
     #[test]
-    fn drag_feedforward_zero_velocity_returns_zero() {
-        let mut ctrl = make_controller();
-        ctrl.limits.drag = DragCoefficient {
-            forward: Drag::new(0.5),
-            horizontal: Drag::new(0.3),
-            vertical: Drag::new(1.0),
-        };
-
-        let result = ctrl.compute_drag_feedforward(VelocityNed::zero(), &Quaternion::identity());
-
-        assert_eq!(result.north().raw(), 0.0);
-        assert_eq!(result.east().raw(), 0.0);
-        assert_eq!(result.down().raw(), 0.0);
-    }
-
-    #[test]
-    fn drag_feedforward_at_zero_yaw() {
-        // Body frame aligns with world frame — forward drag applies to north
-        let mut ctrl = make_controller();
-        ctrl.limits.drag = DragCoefficient {
-            forward: Drag::new(0.5),
-            horizontal: Drag::new(0.3),
-            vertical: Drag::new(1.0),
-        };
-
-        let velocity = VelocityNed::new(4.0.mps(), 0.0.mps(), 0.0.mps());
-        let result = ctrl.compute_drag_feedforward(velocity, &Quaternion::identity());
-
-        // north = forward_drag * v * |v| = 0.5 * 4.0 * 4.0 = 8.0
-        let tolerance = 1e-6;
-        assert!(
-            (result.north().raw() - 8.0).abs() < tolerance,
-            "got {}",
-            result.north().raw()
-        );
-        assert!(result.east().raw().abs() < tolerance);
-        assert!(result.down().raw().abs() < tolerance);
-    }
-
-    #[test]
-    fn drag_feedforward_at_90_degree_yaw() {
-        // Nose points east — forward drag should apply to east axis
-        let mut ctrl = make_controller();
-        ctrl.limits.drag = DragCoefficient {
-            forward: Drag::new(0.5),
-            horizontal: Drag::new(0.3),
-            vertical: Drag::new(1.0),
-        };
-
-        let yaw_90 = Quaternion::from_yaw(90.degrees().to_radians());
-        // Moving east at 4 m/s — in body frame this is forward
-        let velocity = VelocityNed::new(0.0.mps(), 4.0.mps(), 0.0.mps());
-        let result = ctrl.compute_drag_feedforward(velocity, &yaw_90);
-
-        // East movement = body forward, so forward drag (0.5) applies
-        // east = 0.5 * 4.0 * 4.0 = 8.0
-        let tolerance = 1e-3;
-        assert!(
-            (result.east().raw() - 8.0).abs() < tolerance,
-            "east got {}",
-            result.east().raw()
-        );
-        assert!(
-            result.north().raw().abs() < tolerance,
-            "north got {}",
-            result.north().raw()
-        );
-    }
-
-    #[test]
     fn acceleration_clamped_by_pitch_limit_at_zero_yaw() {
         let ctrl = make_controller();
         let large_north_acc = AccelerationNed::new(100.mps2(), 0.mps2(), 0.mps2());
@@ -1093,38 +983,6 @@ mod flight_controller_tests {
             "vertical acc should not change with pitch angle: level={}, pitched={}",
             clamped_level.down().raw(),
             clamped_pitched.down().raw(),
-        );
-    }
-
-    #[test]
-    fn drag_feedforward_vertical_decoupled_from_pitch() {
-        let mut ctrl = make_controller();
-        ctrl.limits.drag = DragCoefficient {
-            forward: Drag::new(0.5),
-            horizontal: Drag::new(0.3),
-            vertical: Drag::new(1.0),
-        };
-
-        // Moving north with no vertical velocity
-        let velocity = VelocityNed::from_north(5.0.mps());
-
-        let drag_level = ctrl.compute_drag_feedforward(velocity, &Quaternion::identity());
-
-        let drag_pitched = ctrl.compute_drag_feedforward(
-            velocity,
-            &Quaternion::from_pitch(-20.0.degrees().to_radians()),
-        );
-
-        let tolerance = 1e-6;
-        assert!(
-            drag_level.down().raw().abs() < tolerance,
-            "vertical drag should be zero with no vertical velocity (level): got {}",
-            drag_level.down().raw()
-        );
-        assert!(
-            drag_pitched.down().raw().abs() < tolerance,
-            "vertical drag should be zero with no vertical velocity (pitched): got {}",
-            drag_pitched.down().raw()
         );
     }
 }

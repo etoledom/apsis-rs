@@ -16,9 +16,6 @@ impl LinearGain {
     pub fn new(value: f64) -> Self {
         LinearGain(value)
     }
-    pub fn zero() -> Self {
-        LinearGain(0.0)
-    }
     pub fn gain(&self) -> f64 {
         self.0
     }

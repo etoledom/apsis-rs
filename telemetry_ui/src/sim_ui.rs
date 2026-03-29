@@ -45,7 +45,7 @@ impl SimulatorUI {
             state_rx: reveiver,
             target_tx: sender,
             state: None,
-            target: Default::default(),
+            target: Target::Pilot(Default::default()),
             sim_start: Instant::now(),
             last_state_time: Instant::now(),
             loop_hz: 0.0,
@@ -63,21 +63,38 @@ impl eframe::App for SimulatorUI {
         self.last_state_time = now;
 
         let keyboard_input = KeyboardController::new(ctx);
-        let new_target = keyboard_input.handle_input(&self.target);
-        if self.target != new_target {
-            self.target = new_target;
-            self.target_tx.send(new_target).ok();
+
+        let pilot_target = match self.target {
+            Target::Pilot(pilot_target) => pilot_target,
+            Target::Autopilot => Default::default(),
+        };
+
+        let new_target = keyboard_input.handle_input(&pilot_target);
+        if pilot_target != new_target {
+            self.target = Target::Pilot(new_target);
+            self.target_tx.send(self.target).ok();
         }
 
         while let Ok(last_state) = self.state_rx.try_recv() {
             self.state = Some(last_state);
         }
 
+        let mode = match self.target {
+            Target::Pilot(_) => FlightMode::Manual,
+            Target::Autopilot => FlightMode::Autopilot,
+        };
+        let status = if let Some(state) = &self.state
+            && state.battery_pct < 20.0
+        {
+            FlightStatus::Warning
+        } else {
+            FlightStatus::Ok
+        };
         HeaderBar {
             flight_time: self.sim_start.elapsed(),
             loop_hz: self.loop_hz,
-            mode: FlightMode::Manual,
-            status: FlightStatus::Ok,
+            mode,
+            status,
         }
         .show(ctx);
 
@@ -173,7 +190,10 @@ impl eframe::App for SimulatorUI {
                             VelocityTargetDisplay {
                                 target: self.target,
                             }
-                            .show(ui);
+                            .show(ui, || {
+                                self.target = Target::Autopilot;
+                                self.target_tx.send(self.target).ok();
+                            });
                         });
                         panel_frame().show(ui, |ui| {
                             AlertsPanel {

@@ -182,7 +182,7 @@ impl FlightController {
         Self::new(
             limits,
             VelocityNed::new(
-                max_lateral_velocity, // Conservative limit to not mess up with Yaw
+                max_lateral_velocity,
                 max_lateral_velocity,
                 max_vertical_velocity,
             ),
@@ -193,36 +193,59 @@ impl FlightController {
         )
     }
 
-    // Cascade:
-    // position_target -> velocity_target (position controller)
-    // velocity_target -> acceleration_target (velocity controller + feedforward)
-    // acceleration_target -> quaternion_target (thrust vector decomposition)
-    // quaternion_target -> angular_rates_target (attitude controller)
-    // angular_rates_target -> drone inputs: pitch, roll, yaw, throttle (rate controller)
+    /// Run the full control cascade for one simulation tick.
+    ///
+    /// Takes the current drone state and produces motor inputs.
+    /// The cascade has six stages, each narrowing from abstract goals to physical commands:
+    ///
+    /// FlightTarget (position / velocity / loiter)
+    ///     - [1] Trajectory generator - open-loop, jerk-limited motion plan
+    /// TrajectorySetpoint { position, velocity, acceleration }
+    ///     - [2] Position controller - closed-loop feedback on position error
+    /// vel_correction (world-frame, m/s)
+    ///     - [3] Velocity combiner - feedforward + feedback
+    /// vel_target (world-frame, m/s)
+    ///     - [4] Velocity controller - PID + acceleration feedforward
+    /// acc_target (world-frame, m/s²)  ← clamped by max pitch/roll
+    ///     -> throttle (vertical thrust component, tilt-compensated)
+    ///     - [5] Attitude controller - quaternion error → angular rates
+    /// angular_rates_target (body-frame, rad/s)
+    ///     - [6] Rate controller - angular rate error → motor mix inputs
+    ///     -> pitch, roll, yaw
+    /// Inputs { throttle, pitch, roll, yaw }
+    ///
     pub fn update(&mut self, telemetry: &State, dt: Seconds) -> Inputs {
+        // Re-sync internal trajectory state if the target changed externally
+        // (e.g. pilot input, mode switch). Prevents large transient errors.
         self.sync_if_needed(telemetry);
-        // 1. Trajectory generator — open loop, produces feedforward signals
+        // [1] Trajectory generator
+        // Produces a smooth, jerk-limited motion plan toward the current FlightTarget.
+        // Runs open-loop, no sensor feedback here. Outputs position + velocity + acceleration setpoints that the rest of the cascade tracks.
         let trajectory_setpoint = self.trajectory_generator.update(&self.target, dt);
-
-        // 2. Position controller — feedback, compares plan vs reality
+        // [2] Position controller
+        // Position error: Compares where the trajectory expects the drone to be vs. where it actually is.
+        // The output is a velocity correction that closes the gap. This is the outer
         let vel_correction = self.position_controller.update(
             telemetry.position_ned,
             trajectory_setpoint.position(),
             dt,
         );
-
-        // 3. Combine: position correction + velocity feedforward
+        // [3] Combine velocity feedforward + position feedback
+        // The feedforward (from trajectory) gives proactive tracking along the planned path.
+        // The feedback (from position controller) corrects drift from the real path.
         let vel_ff = trajectory_setpoint.velocity();
         let vel_target = vel_correction + vel_ff;
-
-        // 4. Acceleration feedforward from trajectory
-        let acc_ff = trajectory_setpoint.acceleration();
+        // [4a] Estimate current acceleration from velocity derivative
+        // Used inside the velocity controller as a damping signal
+        // It helps preventing overshoot when the drone is already accelerating in the right direction.
         let acc_current = self
             .acceleration_estimator
             .update(telemetry.velocity_ned, dt);
-
-        // 5. Velocity PID with both feedforwards
-        //
+        // [4b] Velocity controller
+        // PID on velocity error, with acceleration feedforward from the trajectory plan.
+        // The feedforward actively commands braking during deceleration phases,
+        // reducing the lag between the plan and the drone's actual response.
+        let acc_ff = trajectory_setpoint.acceleration();
         let acc_target = self.velocity_controller.update(
             telemetry.velocity_ned,
             vel_target,
@@ -231,19 +254,31 @@ impl FlightController {
             self.prev_saturation_error,
             dt,
         );
-
+        // [4c] Clamp acceleration to what the airframe can physically deliver.
+        // The saturation error (how much has been clamped) is saved for anti-windup on the next tick:
+        // It back-calculates the integrator to prevent overshoot after a sustained saturated command.
         let acc_target_real = self.clamp_acceleration(acc_target, &telemetry.attitude);
         self.prev_saturation_error = acc_target - acc_target_real;
-
+        // [4d] Throttle, derived from the vertical component of acceleration target.
+        // Tilt-compensated: at non-zero pitch/roll, more thrust is needed to maintain
+        // the same vertical acceleration because thrust is no longer purely vertical.
         let throttle = Self::throttle_from_acceleration(
             acc_target_real,
             &telemetry.attitude,
             self.limits.max_thrust,
         );
-
+        // [5a]
+        // Decomposes the desired acceleration vector into a target attitude quaternion
+        // (thrust vector decomposition)
         let q_target = Self::q_target_from_acceleration(acc_target_real, telemetry.attitude.yaw())
             .clamped(self.limits.max_pitch, self.limits.max_roll);
+        // [5b] Attitude controller
+        // Runs a PID on the quaternion error to produce target angular rates.
+        // Yaw is held at current heading: No heading change is commanded unless the pilot requests yaw_rate.
         let angular_rates_target = self.compute_angular_rates(q_target, telemetry, dt);
+        // [6] Rate controller (inner loop)
+        // Compares target vs actual body-frame angular rates
+        // and outputs the normalized pitch/roll/yaw inputs sent to the motors.
         let (roll, pitch, yaw) =
             self.rate_controller
                 .update(angular_rates_target, telemetry.angular_velocity_body, dt);

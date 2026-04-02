@@ -11,7 +11,7 @@ use flight_core::{
 mod sim_ui;
 use primitives::{
     frames::{Ned, VelocityFrd},
-    units::{MetersLiteral, SecondsLiteral, VelocityLiteral},
+    units::{SecondsLiteral, VelocityLiteral},
 };
 use sim_ui::*;
 
@@ -28,8 +28,10 @@ fn main() -> eframe::Result {
         let mut last_time = Instant::now();
         let mut back_home = false;
         let mut autopilot = ReturnToLaunch::new();
-        controller.set_target_north(AxisTarget::Position(20.meters()));
-        controller.set_target_down(AxisTarget::Position(-10.meters()));
+
+        // Set initial targets for testing.
+        // controller.set_target_north(AxisTarget::Position(20.meters()));
+        // controller.set_target_down(AxisTarget::Position(-10.meters()));
 
         loop {
             let now = Instant::now();

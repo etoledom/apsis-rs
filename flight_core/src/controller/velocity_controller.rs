@@ -79,9 +79,6 @@ impl Integral {
         vel_error_arw_modified
             .update_east(vel_error.east() - arw_gain_east.apply(saturation_error.east()));
 
-        // println!("Error AFTER: {:?}", vel_error);
-        // println!("-----");
-
         let integral = self.ki.apply(vel_error_arw_modified);
 
         self.accumulator.add_north(integral.north() * dt.raw());

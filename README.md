@@ -1,8 +1,11 @@
-# flight-sim-rs
+# apsis-rs
 
 A flight controller and physics simulator written in Rust. Built from first principles, following aerospace industry conventions (NED/FRD coordinate frames, PID cascaded architecture). 
 
 This is a **learning project**. The goal is to deeply understand flight controller design and industry conventions while writing idiomatic, well-typed Rust.
+
+![CleanShot 2026-04-02 at 11 00 33](https://github.com/user-attachments/assets/80447859-ef96-4bdb-bc97-261270686cb0)
+
 
 ## AI Disclosure
 
@@ -82,19 +85,6 @@ Pilot Input (body frame)
 (*) *VelocityController* note: Not a standard PID. The derivative term acts on measured acceleration (not velocity error derivative) to avoid setpoint-kick noise. The integral uses Anti-Reset Windup (ARW / tracking). The saturation error is fed back to modify the integrated error before accumulation, keeping the integrator from winding up when output is clamped. The vertical axis uses a conditional integrator instead of ARW: it only accumulates when the saturation error and velocity error have opposite signs (i.e. the output is not already pushing in the right direction).
 
 Coordinate conventions follow aerospace standard throughout: **NED world frame, FRD body frame, positive pitch = nose up**.
-
----
-
-
-## License
-
-**Source Available — Non-Commercial**
-
-You are free to use, study, modify, and share this software for non-commercial purposes.
-
-Any commercial use — including but not limited to use in a product, service, or any activity generating revenue — requires a separate agreement. Commercial users must contribute back to this project (code, funding, or both). Contact the maintainers to discuss terms.
-
-This project is not under an OSI-approved open source license. Attribution is required in all cases.
 
 ---
 
